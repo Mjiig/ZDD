@@ -1,6 +1,13 @@
 class Operations:
 
     @staticmethod
+    def varMax(a,b):
+        if Operations.varLessThan(a, b):
+            return a
+        else:
+            return b
+
+    @staticmethod
     def varLessThan(a, b):
         if a is None:
             return False
@@ -131,4 +138,82 @@ class Operations:
     @staticmethod
     def implication(diagram1, diagram2):
         #This is a potentially very inefficient implementation
-        return Operations.disjunction(Operations.negation(diagram1), diagram2)
+        #return Operations.disjunction(Operations.negation(diagram1), diagram2)
+
+        cache = {}
+        ns = diagram1.owner
+
+        def inner(node1, node2):
+            if node1.isTrue():
+                return node2
+            if node1.isFalse():
+                return ns.trueNode
+
+            if Operations.varLessThan(node1._variable, node2._variable):
+                left = inner(node1.t, ns.falseNode)
+                right = inner(node1.f, node2)
+                left = Operations.weaken(left, node1.t._variable, node1._variable)
+                right = Operations.weaken(right, node1.f._variable, node1._variable)
+                if left.isFalse():
+                    ret = right
+                else:
+                    ret = ns.getNode(node1._variable, left, right)
+            elif Operations.varLessThan(node2._variable, node1._variable):
+                ret = inner(node1, node2.f)
+            else:
+                left = inner(node1.t, node2.t)
+                right = inner(node1.f, node2.f)
+                left = Operations.weaken(left, node1.t._variable, node1._variable)
+                right = Operations.weaken(right, node1.f._variable, node1._variable)
+                if left.isFalse():
+                    ret = right
+                else:
+                    ret = ns.getNode(node1._variable, left, right)
+            
+            cache[(node1.counter, node2.counter)]=ret
+            return ret
+                
+        return Operations.weaken(inner(diagram1, diagram2), diagram1._variable, -1)
+
+    @staticmethod
+    def bimplication(diagram1, diagram2):
+        cache = {}
+        ns = diagram1.owner
+
+        def inner(node1, node2):
+            if node1._variable is None and node2._variable is None:
+                if (node1.isTrue() and node2.isTrue()) or (node1.isFalse() and node2.isFalse()):
+                    return ns.trueNode
+                else:
+                    return ns.falseNode
+
+            if Operations.varLessThan(node2._variable, node1._variable):
+                node1, node2 = node2, node1
+
+            if Operations.varLessThan(node1._variable, node2._variable):
+                left = inner(node1.t, node2)
+                right = inner(node1.f, node2)
+                left = Operations.weaken(left, Operations.varMax(node1.t._variable, node2._variable), node1._variable)
+                right = Operations.weaken(right, Operations.varMax(node1.f._variable, node2._variable), node1._variable)
+
+                if left.isFalse():
+                    ret = right
+                else:
+                    ret = ns.getNode(node1._variable, left, right)
+            else:
+                left = inner(node1.t, node2.t)
+                right = inner(node1.f, node2.f)
+                left = Operations.weaken(left, Operations.varMax(node1.t._variable, node2.t._variable), node1._variable)
+                right = Operations.weaken(right, Operations.varMax(node1.f._variable, node2.f._variable), node1._variable)
+
+                if left.isFalse():
+                    ret = right
+                else:
+                    ret = ns.getNode(node1._variable, left, right)
+
+            n1 = min(node1.counter, node2.counter)
+            n2 = max(node1.counter, node2.counter)
+            cache[(n1, n2)] = ret
+            return ret
+
+        return inner(diagram1, diagram2)
