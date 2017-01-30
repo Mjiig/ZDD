@@ -74,6 +74,12 @@ class Operations:
         ns = diagram1.owner
 
         def inner(node1, node2):
+            n1 = min(node1.counter, node2.counter)
+            n2 = max(node1.counter, node2.counter)
+
+            if (n1, n2) in cache:
+                return cache[(n1, n2)]
+
             if node1.isTrue() and node2.isTrue():
                 return ns.trueNode
             if node1.isFalse():
@@ -92,8 +98,6 @@ class Operations:
                 left = inner(node1.t, node2.t)
                 right = inner(node1.f, node2.f)
                 ret = ns.getNode(node1._variable, left, right)
-            n1 = min(node1.counter, node2.counter)
-            n2 = max(node1.counter, node2.counter)
             cache[(n1, n2)] = ret
             return ret
 
@@ -105,6 +109,12 @@ class Operations:
         ns = diagram1.owner
 
         def inner(node1, node2):
+            n1 = min(node1.counter, node2.counter)
+            n2 = max(node1.counter, node2.counter)
+
+            if (n1, n2) in cache:
+                return cache[(n1, n2)]
+            
             if node1.isTrue() and node2.isTrue():
                 return ns.trueNode
             if node1.isFalse() or node2.isFalse():
@@ -120,8 +130,7 @@ class Operations:
                 right = inner(node1.f, node2.f)
                 ret = ns.getNode(node1._variable, left, right)
 
-            n1 = min(node1.counter, node2.counter)
-            n2 = max(node1.counter, node2.counter)
+
             cache[(n1, n2)] = ret
             return ret
 
@@ -136,6 +145,9 @@ class Operations:
         ns = diagram1.owner
 
         def inner(node1, node2):
+            if (node1.counter, node2.counter) in cache:
+                return cache[(node1.counter, node2.counter)]
+
             if node1.isTrue():
                 return node2
             if node1.isFalse():
@@ -169,6 +181,11 @@ class Operations:
         ns = diagram1.owner
 
         def inner(node1, node2):
+            n1 = min(node1.counter, node2.counter)
+            n2 = max(node1.counter, node2.counter)
+
+            if (n1, n2) in cache:
+                return cache[(n1, n2)]
             if node1._variable is None and node2._variable is None:
                 if (node1.isTrue() and node2.isTrue()) or (node1.isFalse() and node2.isFalse()):
                     return ns.trueNode
@@ -191,8 +208,7 @@ class Operations:
 
             ret = ns.getNode(node1._variable, left, right)
 
-            n1 = min(node1.counter, node2.counter)
-            n2 = max(node1.counter, node2.counter)
+
             cache[(n1, n2)] = ret
             return ret
 
