@@ -62,10 +62,7 @@ class Operations:
             left = Operations.weaken(left, node.t._variable, node._variable)
             right = Operations.weaken(right, node.f._variable, node._variable)
 
-            if left.isFalse():
-                ret = right
-            else:
-                ret = ns.getNode(node._variable, left, right)
+            ret = ns.getNode(node._variable, left, right)
             cache[node.counter] = ret
             return ret
 
@@ -94,10 +91,7 @@ class Operations:
                 # node1._variable is equal to node2._variable
                 left = inner(node1.t, node2.t)
                 right = inner(node1.f, node2.f)
-                if left.isFalse():
-                    ret = right
-                else:
-                    ret = ns.getNode(node1._variable, left, right)
+                ret = ns.getNode(node1._variable, left, right)
             n1 = min(node1.counter, node2.counter)
             n2 = max(node1.counter, node2.counter)
             cache[(n1, n2)] = ret
@@ -124,10 +118,8 @@ class Operations:
             else:
                 left = inner(node1.t, node2.t)
                 right = inner(node1.f, node2.f)
-                if left.isFalse():
-                    ret = right
-                else:
-                    ret = ns.getNode(node1._variable, left, right)
+                ret = ns.getNode(node1._variable, left, right)
+
             n1 = min(node1.counter, node2.counter)
             n2 = max(node1.counter, node2.counter)
             cache[(n1, n2)] = ret
@@ -154,10 +146,8 @@ class Operations:
                 right = inner(node1.f, node2)
                 left = Operations.weaken(left, node1.t._variable, node1._variable)
                 right = Operations.weaken(right, node1.f._variable, node1._variable)
-                if left.isFalse():
-                    ret = right
-                else:
-                    ret = ns.getNode(node1._variable, left, right)
+               
+                ret = ns.getNode(node1._variable, left, right)
             elif Operations.varLessThan(node2._variable, node1._variable):
                 ret = inner(node1, node2.f)
             else:
@@ -165,10 +155,8 @@ class Operations:
                 right = inner(node1.f, node2.f)
                 left = Operations.weaken(left, node1.t._variable, node1._variable)
                 right = Operations.weaken(right, node1.f._variable, node1._variable)
-                if left.isFalse():
-                    ret = right
-                else:
-                    ret = ns.getNode(node1._variable, left, right)
+                
+                ret = ns.getNode(node1._variable, left, right)
             
             cache[(node1.counter, node2.counter)]=ret
             return ret
@@ -195,21 +183,13 @@ class Operations:
                 right = inner(node1.f, node2)
                 left = Operations.weaken(left, Operations.varMax(node1.t._variable, node2._variable), node1._variable)
                 right = Operations.weaken(right, Operations.varMax(node1.f._variable, node2._variable), node1._variable)
-
-                if left.isFalse():
-                    ret = right
-                else:
-                    ret = ns.getNode(node1._variable, left, right)
             else:
                 left = inner(node1.t, node2.t)
                 right = inner(node1.f, node2.f)
                 left = Operations.weaken(left, Operations.varMax(node1.t._variable, node2.t._variable), node1._variable)
                 right = Operations.weaken(right, Operations.varMax(node1.f._variable, node2.f._variable), node1._variable)
 
-                if left.isFalse():
-                    ret = right
-                else:
-                    ret = ns.getNode(node1._variable, left, right)
+            ret = ns.getNode(node1._variable, left, right)
 
             n1 = min(node1.counter, node2.counter)
             n2 = max(node1.counter, node2.counter)

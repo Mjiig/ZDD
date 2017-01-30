@@ -13,6 +13,9 @@ class NodeSet:
         key = (variable, t.counter, f.counter)
         if key in self.nodes:
             return self.nodes[key]
+
+        if t.isFalse():
+            return f
         
         newNode = node.Node(variable, self, t, f, self.nextCounter)
         self.nextCounter+=1
