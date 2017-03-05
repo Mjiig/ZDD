@@ -1,0 +1,139 @@
+% Note: this file can be compiled on its own, but is also included by
+% diss.tex (using the docmute.sty package to ignore the preamble)
+\documentclass[12pt,a4paper,twoside]{article}
+\usepackage[pdfborder={0 0 0}]{hyperref}
+\usepackage[margin=25mm]{geometry}
+\usepackage{graphicx}
+\usepackage{parskip}
+\begin{document}
+
+\begin{center}
+\Large
+Computer Science Tripos -- Part II -- Project Proposal
+\LARGE
+Representing solutions to the Travelling Salesman Problem using ZDDs\\[4mm]
+
+\large
+A.~Hammond, Corpus Christi College
+
+Originator: A. Hammond
+
+6 October 2016
+\end{center}
+
+\vspace{5mm}
+
+\textbf{Project Supervisor:} Dr T. Griffin
+
+\textbf{Director of Studies:} Dr D. Greaves
+
+\textbf{Project Overseers:} Dr A. Beresford  \& Dr G. Wynskel
+
+% Main document
+
+\section*{Introduction}
+
+Zero suppressed binary decision diagrams (ZDDs) are a variant of binary decision diagrams (BDDs, covered in Part 1B) that are optimised for representing functions that are almost everywhere zero. Like with BDDs there are efficient algorithms for computing the combination of two ZDDs by most logical functions.
+
+ZDDs are consequently a good candidate for representing families of subsets since these can be represented by characteristic functions, which will be sparse so long as the families are.
+
+If we represent the solutions to NP-complete problems as collections of boolean variables then we can find valid solutions as 1-paths in a ZDD representing the constraints on those variables, and measure properties of those solutions efficiently by computing the property at each node of the ZDD. ZDDs have been used in this capacity in several recent pieces of research\cite{numberlink}\cite{ind}.
+
+ZDDs have also been applied to operations on sets of paths in a graph. Paths are represented as a subset of a universe of variables, each of which corresponds to a particular node of the graph being visited at a particular index along the path. The most well known algorithm taking advantage of this is Donald Knuth's \textit{Simpath} algorithm, published in Volume 4A of \textit{The Art of Computer Programming}. 
+
+Representing the set of paths that visit all nodes of a weighted complete graph in this way, and then recursively computing the minimum cost 1-path below each node allows us to compute the solution to the instance of the Travelling Salesman Problem described by that graph. I believe the complexity of this solution should be equivalent to an obvious Dynamic Programming solution. I expect there to be a trade off between the extra power introduced by using ZDDs (arbitrary additional constraints on the path could be added using standard ZDD operations) and the significant additional complexity of implementing the ZDD data structure.
+
+\section*{Starting point}
+
+The ZDD manipulation library used in this project will be built from scratch in order to explore the complexity of the data structure.
+
+Current literature includes much analysis of ZDDs in general\cite{history}, but little on their use for solving instances of TSP.
+
+\section*{Resources required}
+
+I will primarily be using my personal laptop for this project running Linux Mint. All code will be backed up to github along with dissertation text in \LaTeX~form. Periodic backup will also be made to the MCS machines. In the event that my laptop becomes unusable for this project, all work will be possible to carry out using only MCS machines.
+
+\section*{Work to be done}
+
+The project breaks down into the following sub-projects:
+
+\begin{enumerate}
+
+\item Implementation of a generic ZDD data structure including functions to produce the primitive ZDDs used to build ZDDs that represent TSP instances and efficient functions for combining ZDDs.
+
+\item Implementation of a solver for TSP using ZDD library.
+
+\item Implementation of a dynamic programming solver for TSP.
+
+\item Implementation of a brute force TSP solver for verifying the solutions of the other solvers on small problem instances (since a brute force solver should be easier to implement correctly and still be viable to run on instances with approximately 10 nodes).
+
+\item Implementation a test harness to measure the efficiency of the two solutions on a number of random instances of TSP, including generating random instances of arbitrary size, and testing the correctness of the solutions. Testing might be achieved by comparing results among the three solvers, verifying by hand on problem instances small enough to make this viable and running the solvers on graphs where a minimum path can be found theoretically.
+
+\item Experimental comparison of the performance (real time and asymptotic growth of operation count) of the three algorithms using the implemented test harness.
+
+\end{enumerate}
+
+\section*{Success criteria}
+
+The project will be a success either if the ZDD based solution is shown experimentally to have equivalent complexity to the dynamic programming solution, or if this is experimentally refuted.
+
+Evaluation of whether the two solutions have the same complexity will be achieved by plotting curves of run time and operation count of the two algorithms on problem sizes ranging to at least 30 nodes, linearly normalised to have the same value on the largest problem instance and the same average rate of growth. If the solutions have equivalent complexity we expect to see the same shape of graph for both, well approximated by a function in $\theta(n^22^n)$.
+
+\section*{Possible extensions}
+
+\begin{enumerate}
+
+\item Demonstrate that the ZDD used to solve TSP can be built lazily and evaluate average performance improvement from doing so.
+
+\item Compare the average performance of lazily built ZDDs to the known branch-and-bound algorithm for solving TSP.
+
+\item Demonstrate that ZDDs can also be used to solve other NP-complete problems, for example graph colouring.
+
+\end{enumerate}
+
+\section*{Timetable}
+
+Planned starting date is 22/10/2016.
+
+\begin{enumerate}
+
+\item \textbf{22nd October - 2nd November} Read ZDD section of Knuth's \textit{The Art of Computer Programming} to better understand state of the art, and select implementation programming language. Write first draft of dissertation background chapter.
+
+\item \textbf{3rd November - 16th November} Build TSP generator and solution checker (possibly using brute force algorithm to verify solutions on small problems).
+
+\item \textbf{17th November - 7th December} Build general ZDD implementation with functionality for combining multiple ZDDs according to standard boolean operators. Begin dissertation implementation chapter.
+
+\item \textbf{8th December - 28th December} Implement dynamic programming algorithm for solving TSP.
+
+\item \textbf{29th December - 18th January} Implement ZDD based algorithm on top of general ZDD implementation.
+
+\item \textbf{19th January - 1st February} Verify correctness of both solutions and write progress report. Conclude first draft of dissertation implementation chapter. Write progress report presentation, hopefully covering testing of the solvers correctness.
+
+\item \textbf{2nd February - 1st March} Performance analysis of both solutions, ideally determine validity of the hypothesis being tested. Write first draft of dissertation evaluation chapter.
+
+\item \textbf{2nd March - 15th March} Second draft of main chapters of dissertation and evaluating extension feasibility.
+
+\item \textbf{16th March - 5th April} Complete extensions if feasible, otherwise perform additional verification of evaluation.
+
+\item \textbf{6th April - 25th April} Produce complete dissertation draft for start of full term to allow time for review by supervisor and overseers.
+
+\item \textbf{26th April - 10th May}  Complete dissertation, performing further evaluation if necessary.
+
+\item \textbf{11th May - 17th May} Submit dissertation.
+
+\end{enumerate}
+
+\begin{thebibliography}{9}
+
+\bibitem{numberlink}
+Yoshinaka, Ryo, et al. "Finding all solutions and instances of numberlink and slitherlink by ZDDs." Algorithms 5.2 (2012): 176-213.
+
+\bibitem{ind}
+Morrison, David R., Edward C. Sewell, and Sheldon H. Jacobson. "Characteristics of the maximal independent set ZDD." Journal of Combinatorial Optimization 28.1 (2014): 121-139.
+
+\bibitem{history}
+Minato, Shin-ichi. "Techniques of BDD/ZDD: brief history and recent activity." IEICE TRANSACTIONS on Information and Systems 96.7 (2013): 1419-1429.
+
+\end{thebibliography}
+
+\end{document}

@@ -1,0 +1,65 @@
+% Note: this file can be compiled on its own, but is also included by
+% diss.tex (using the docmute.sty package to ignore the preamble)
+\documentclass[12pt,a4paper,twoside]{article}
+\usepackage[pdfborder={0 0 0}]{hyperref}
+\usepackage[margin=25mm]{geometry}
+\usepackage{graphicx}
+\usepackage{parskip}
+\begin{document}
+
+\begin{center}
+\Large
+Computer Science Tripos -- Part II -- Project Progress Report
+\LARGE
+Representing solutions to the Travelling Salesman Problem using ZDDs\\[4mm]
+
+\large
+A.~Hammond, Corpus Christi College (ah805@cam.ac.uk)
+
+Originator: A. Hammond
+
+6 October 2016
+\end{center}
+
+\vspace{5mm}
+
+\textbf{Project Supervisor:} Dr T. Griffin
+
+\textbf{Director of Studies:} Dr D. Greaves
+
+\textbf{Project Overseers:} Dr A. Beresford  \& Dr G. Wynskel
+
+% Main document
+
+\section*{Completed Work}
+
+An complete package for representing ZDDs in python has been implemented and tested. Support is avaiable for taking negation, conjunction, disjunction, implication and bi-implication of ZDDs, and have been optimised to take linear time in the size of the input and output diagrams.
+
+Programs have also been created to generate instances of the travelling salesman problem, with both random city locations and city locations distributed so as to allow analytic solutions. These have been used to test the correctness of a brute force solver for the travelling salesman problem.
+
+\section*{Unexpected Difficulties}
+
+The complexity of implementing some operations on ZDDs was significantly higher than anticipated. Unlike BDDs, the output of some ZDD operations on a given node can contain nodes that are not produced by induction on its children. Failure to realise this early on led to several false starts before an efficient way to handle the correct behavior was found. Consequently the project is around two weeks behind, with the dynamic programming and ZDD based TSP solvers only partially implemented.
+
+\section*{Revised Timeable}
+
+\begin{enumerate}
+
+\item \textbf{2nd February - 11st February} Complete dynamic programming TSP solver.
+
+\item \textbf{12th February - 21st February} Complete ZDD based TSP solver.
+
+\item \textbf{22nd February - 1st March} Verify all solvers give consistent answers and do performance analysis.
+
+\item \textbf{2nd March - 15th March} Second draft of main chapters of dissertation and evaluating extension feasibility.
+
+\item \textbf{16th March - 5th April} Complete extensions if feasible, otherwise perform additional verification of evaluation.
+
+\item \textbf{6th April - 25th April} Produce complete dissertation draft for start of full term to allow time for review by supervisor and overseers.
+
+\item \textbf{26th April - 10th May}  Complete dissertation, performing further evaluation if necessary.
+
+\item \textbf{11th May - 17th May} Submit dissertation.
+
+\end{enumerate}
+\end{document}
