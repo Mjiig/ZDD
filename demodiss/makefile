@@ -40,11 +40,6 @@ help:
 view-%: %.pdf
 	( okular --unique $< || evince $< ) &
 
-diss.pdf: figs/cuarms.pdf figs/diagram.pdf makefile.txt proposal.tex diss.bbl
-
-makefile.txt: makefile
-	expand makefile >makefile.txt
-
 count:
 	detex diss.tex | tr -cd '0-9A-Za-z \n' | wc -w
 

@@ -1,0 +1,32 @@
+digraph zdd{
+    ordering=out
+    q1 [label=q]
+    q2 [label=q]
+    r1 [label=r]
+    r2 [label=r]
+    r3 [label=r]
+    r4 [label=r]
+    False1 [label=0, shape=square]
+    False2 [label=0, shape=square]
+    False3 [label=0, shape=square]
+    False4 [label=0, shape=square]
+    False5 [label=0, shape=square]
+    True1 [label=1, shape=square]
+    True2 [label=1, shape=square]
+    True3 [label=1, shape=square]
+
+    p -> q1
+    p -> q2 [style=dotted]
+    q1 -> r1
+    q1 -> r2 [style=dotted]
+    q2 -> r3
+    q2 -> r4 [style=dotted]
+    r1 -> False1
+    r1 -> False2 [style=dotted]
+    r2 -> False3
+    r2 -> True1 [style=dotted]
+    r3 -> True2
+    r3 -> False4 [style=dotted]
+    r4 -> False5
+    r4 -> True3 [style=dotted]
+}

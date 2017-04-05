@@ -5,6 +5,7 @@
 \usepackage{graphicx}  % allows inclusion of PDF, PNG and JPG images
 \usepackage{verbatim}
 \usepackage{docmute}   % only needed to allow inclusion of proposal.tex
+\usepackage{amssymb}
 
 \raggedbottom                           % try to avoid widows and orphans
 \sloppy
@@ -96,195 +97,81 @@ extent for a comparable purpose.
 \pagestyle{headings}
 
 \chapter{Introduction}
+\section{Project Outline}
+This project seeks to demonstrate an equivalence between two different algorithms for solving the Travelling Salesman Problem, an obvious dynamic programming solution, and a solution based on techniques from logic theory that represents all Hamiltonian paths of a graph and enumerates them in a structured way. The second algorithm represents Hamiltonian paths of a graph as a constrained set of propositional variables and stores the set of satisfying assignments using a data structure called a Zero-suppressed Binary Decision Diagram (ZDD). This data structure is a variant of the better known Binary Decision Diagram (BDD). The theoretical basis for believing this equivalence exists, an explanation of the origins and working of ZDDs and descriptions of both of the algorithms are included in the Preparation chapter.
+
+The majority of the code I have written as part of this project is a library in Python for building and manipulating ZDDs efficiently, including support for producing a new ZDD from a previously built one using several standard propositional operations (for example negation, conjunction, disjunction and implication). In addition I have implemented both of the algorithms being reviewed, along with a third simpler algorithm for the Travelling Salesman Problem to help verify the correctness of both implementations. In order to test all of the implementations I have written two procedures to generate instances of the Travelling Salesman Problem, one of which produces problem instances with analytically verifiable solutions, to further aid verification of the correctness of all the algorithms, with the other producing more general problem instances in order to demonstrate the generality of all the algorithms. How each of these components is implemented is described in more detail in the Implementation chapter.
+
+In order to experimentally demonstrate the equivalence of the two algorithms I have run them on a large number of automatically generated instances of the Travelling Salesman Problem and measured both the average time and average number of logical operations taken by the two algorithms to produce a solution, as a function of the number of cities in the problem. In both cases the function is expected to have the form $\Theta(2^nn^2)$.
+
+\chapter{Preparation}
+
+\section{The Travelling Salesman Problem}
+The Travelling Salesman Problem exists as both a function problem and a decision problem. In this project I have focused on the function problem, but it is trivial to construct a program solving the decision problem given a program solving the function problem. The problem is to find the lowest cost path that visits all of a set of cities. More formally, given a set of cities $C$ and a cost function $f: C\to\mathbb{R}$ find the minimum possible value of $\sum_{i=1}^{|C|-1}f(x_i,x_{i+1})$ where each $x_i$ has been assigned a distinct value from $C$.
+
+The related decision problem takes a target distance as well as a set of cities and a cost function, and is only required to evaluate whether there is a path with total cost less than the given target distance. This form of the problem is known to be NP-Complete.
+
+Variants of the problem exist, for example requiring that the path start and finish in the same city, not guaranteeing that the the cost function be total (i.e.\ prohibiting certain cities from being visited consecutively) or guaranteeing that the cost function will only take integer values. Most such variant are easy to reduce to an instance of the described function problem.
+
+\section{Solving The Travelling Salesman Problem with Dynamic Programming}
+An entirely naive brute force approach to the Traveling Salesman Problem takes $\Theta(n!)$ time to run. This can be improved on significantly with dynamic programming. Let the $C$ be the set of cities and $f$ be the cost function. Define $g(S, c)$, where $S\subseteq C$ and $c\in S$ to be the lowest possible cost of a path that starts in $c$ and visits all the cities in $S$. Computing $g({c}, c)$ for all $c\in C$ is trivial, since paths containing only a single city have a cost of zero. Then for all other values of $S\subseteq C$, compute $g(S,c)$ as 
+
+$$
+g(S,c)=\min_{c'\in S\setminus\{c\}}(g(S\setminus\{c\},c') + f(c,c'))
+$$
+
+Once all values of $g$ have been computed, the solution to the problem is given by
+
+$$
+\min_{c\in C} g(C,c)
+$$
+
+If $C$ has size $n$ there are $2^n$ subsets of $C$, so $n2^n$ possible sets of arguments to $g$, each of which requires evaluation of up to $n$ terms to compute, this algorithm has a time complexity of at most $\mathcal{O}(n^22^n)$.
 
 \section{Binary Decision Diagrams}
 The general principle of a Binary Decision Diagram (BDD) is to give a canonical graph based representation of boolean functions (or equivalently, sentences of propositional logic). The most trivial way to achieve this is with a binary decision tree, in which we take a rooted tree, every internal node of which has two children and is labelled with one of the inputs to the function being represented. Every node on the same layer of the tree should be labelled with the same input, and a path from root to leaf should contain exactly one node labelled with each variable.
 
-If we label the arcs from each node to it's children $T$ and $F$, and say that following an arc labelled $T$ from a node labelled $p$ corresponds to assuming that $p$ is true, and vice versa for $F$, we now have a tree in which every possible assignment of inputs to the function being represented corresponds to a unique path from root to leaf of the tree. We can represent the value of the function given these inputs by labelling the leaf node $1$ or $0$ for true and false respectively. 
+If we label the arcs from each node to its children $T$ and $F$, and say that following an arc labelled $T$ from a node labelled $p$ corresponds to assuming that $p$ is true, and vice versa for $F$, we now have a tree in which every possible assignment of inputs to the function being represented corresponds to a unique path from the root to a leaf of the tree. We can represent the value of the function given these inputs by labelling the leaf node $1$ or $0$ for true and false respectively. Figure \ref{decisiontree} is an example of such a tree representing the function $p\wedge\neg q$.
 
-\section{Starting Point}
+\begin{figure}[tbh]
+\centerline{\includegraphics{figs/decisiontree.pdf}}
+\caption{A binary decision tree representing the function $p\wedge\neg q$. Conventionally, the $T$ arc out of a node is drawn with a solid line, and the $F$ arc with a dotted line.}
+\label{decisiontree}
+\end{figure}
 
+Although this representation is easy to understand, storing it in memory is obviously extremely inefficient. An obvious initial optimization is to avoid storing multiple redundant subtrees, resulting in a directed acyclic graph, as shown in Figure \ref{basicdiagram}.
 
-\chapter{Preparation}
+\begin{figure}[tbh]
+\centerline{\includegraphics{figs/basicdiagram.pdf}}
+\caption{A graph representing $p\wedge\neg q$ generated by sharing of redundant subtrees in Figure \ref{decisiontree}}
+\label{basicdiagram}
+\end{figure}
 
-This chapter is empty!
+This form is obviously not minimal however, since each node is explicitly labelled with a variable name, which could be calculated from the depth of the node within the (now implicit) tree. Instead of removing the node labels, we can instead exploit them to remove sections of the graph without loss of information. In a typical BDD, nodes are removed if both of their children are the same (ie, if the value of the relevant variable has no effect on the output of the function given the already specified variables). Figure \ref{bdd} gives an example of such a diagram. In a ZDD, nodes are instead removed if their $T$ child is the $0$ node (hence, \emph{zero suppressed}). This produces the smallest representation of $p\wedge\neg q$ of all the techniques presented, as shown in Figure \ref{zdd}.
 
+\begin{figure}[tbh]
+\centerline{\includegraphics{figs/bdd.pdf}}
+\caption{$p\wedge\neg q$ represented using a typical BDD.}
+\label{bdd}
+\end{figure}
+
+\begin{figure}[tbh]
+\centerline{\includegraphics{figs/zdd.pdf}}
+\caption{$p\wedge\neg q$ represented using a ZDD. Notice it contains one fewer node and two fewer edges than the equivalent BDD.}
+\label{zdd}
+\end{figure}
+
+\section{Documentation}
+The course notes for the Cambridge Computer Science 1B course on Logic \& Proof contain a detailed description of how BDDs can be constructed and combined. The general form of the recursive algorithm described for combining two BDDs is the same for ZDDs, and is described in more detail in the Implementation section.
+
+The use of ZDDs for solving combinatoric problems is covered in Volume 4A of Donald Knuth's \emph{The Art Of Computer Science}, along with extensive analysis of their time and memory complexity.
 
 \chapter{Implementation}
 
-\section{Verbatim text}
-
-Verbatim text can be included using \verb|\begin{verbatim}| and
-\verb|\end{verbatim}|. I normally use a slightly smaller font and
-often squeeze the lines a little closer together, as in:
-
-{\renewcommand{\baselinestretch}{0.8}\small
-\begin{verbatim}
-GET "libhdr"
- 
-GLOBAL { count:200; all  }
- 
-LET try(ld, row, rd) BE TEST row=all
-                        THEN count := count + 1
-                        ELSE { LET poss = all & ~(ld | row | rd)
-                               UNTIL poss=0 DO
-                               { LET p = poss & -poss
-                                 poss := poss - p
-                                 try(ld+p << 1, row+p, rd+p >> 1)
-                               }
-                             }
-LET start() = VALOF
-{ all := 1
-  FOR i = 1 TO 12 DO
-  { count := 0
-    try(0, 0, 0)
-    writef("Number of solutions to %i2-queens is %i5*n", i, count)
-    all := 2*all + 1
-  }
-  RESULTIS 0
-}
-\end{verbatim}
-}
-
-\section{Tables}
-
-\begin{samepage}
-Here is a simple example\footnote{A footnote} of a table.
-
-\begin{center}
-\begin{tabular}{l|c|r}
-Left      & Centred & Right \\
-Justified &         & Justified \\[3mm]
-%\hline\\%[-2mm]
-First     & A       & XXX \\
-Second    & AA      & XX  \\
-Last      & AAA     & X   \\
-\end{tabular}
-\end{center}
-
-\noindent
-There is another example table in the proforma.
-\end{samepage}
-
-\section{Simple diagrams}
-
-Simple diagrams can be written directly in \LaTeX.  For example, see
-figure~\ref{latexpic1} on page~\pageref{latexpic1} and see
-figure~\ref{latexpic2} on page~\pageref{latexpic2}.
-
-\begin{figure}
-\setlength{\unitlength}{1mm}
-\begin{center}
-\begin{picture}(125,100)
-\put(0,80){\framebox(50,10){AAA}}
-\put(0,60){\framebox(50,10){BBB}}
-\put(0,40){\framebox(50,10){CCC}}
-\put(0,20){\framebox(50,10){DDD}}
-\put(0,00){\framebox(50,10){EEE}}
-
-\put(75,80){\framebox(50,10){XXX}}
-\put(75,60){\framebox(50,10){YYY}}
-\put(75,40){\framebox(50,10){ZZZ}}
-
-\put(25,80){\vector(0,-1){10}}
-\put(25,60){\vector(0,-1){10}}
-\put(25,50){\vector(0,1){10}}
-\put(25,40){\vector(0,-1){10}}
-\put(25,20){\vector(0,-1){10}}
-
-\put(100,80){\vector(0,-1){10}}
-\put(100,70){\vector(0,1){10}}
-\put(100,60){\vector(0,-1){10}}
-\put(100,50){\vector(0,1){10}}
-
-\put(50,65){\vector(1,0){25}}
-\put(75,65){\vector(-1,0){25}}
-\end{picture}
-\end{center}
-\caption{A picture composed of boxes and vectors.}
-\label{latexpic1}
-\end{figure}
-
-\begin{figure}
-\setlength{\unitlength}{1mm}
-\begin{center}
-
-\begin{picture}(100,70)
-\put(47,65){\circle{10}}
-\put(45,64){abc}
-
-\put(37,45){\circle{10}}
-\put(37,51){\line(1,1){7}}
-\put(35,44){def}
-
-\put(57,25){\circle{10}}
-\put(57,31){\line(-1,3){9}}
-\put(57,31){\line(-3,2){15}}
-\put(55,24){ghi}
-
-\put(32,0){\framebox(10,10){A}}
-\put(52,0){\framebox(10,10){B}}
-\put(37,12){\line(0,1){26}}
-\put(37,12){\line(2,1){15}}
-\put(57,12){\line(0,2){6}}
-\end{picture}
-
-\end{center}
-\caption{A diagram composed of circles, lines and boxes.}
-\label{latexpic2}
-\end{figure}
-
-
-
-\section{Adding more complicated graphics}
-
-The use of \LaTeX\ format can be tedious and it is often better to use
-encapsulated postscript (EPS) or PDF to represent complicated graphics.
-Figure~\ref{epsfig} and~\ref{xfig} on page \pageref{xfig} are
-examples. The second figure was drawn using \texttt{xfig} and exported in
-{\tt.eps} format. This is my recommended way of drawing all diagrams.
-
-
-\begin{figure}[tbh]
-\centerline{\includegraphics{figs/cuarms.pdf}}
-\caption{Example figure using encapsulated postscript}
-\label{epsfig}
-\end{figure}
-
-\begin{figure}[tbh]
-\vspace{4in}
-\caption{Example figure where a picture can be pasted in}
-\label{pastedfig}
-\end{figure}
-
-
-\begin{figure}[tbh]
-\centerline{\includegraphics{figs/diagram.pdf}}
-\caption{Example diagram drawn using \texttt{xfig}}
-\label{xfig}
-\end{figure}
-
-
 \chapter{Evaluation}
-
-\section{Printing and binding}
-
-Use a ``duplex'' laser printer that can print on both sides to print
-two copies of your dissertation. Then bind them, for example using the
-comb binder in the Computer Laboratory Library.
-
-\section{Further information}
-
-See the Unix Tools notes at
-
-\url{http://www.cl.cam.ac.uk/teaching/current-1/UnixTools/materials.html}
 
 
 \chapter{Conclusion}
-
-I hope that this rough guide to writing a dissertation is \LaTeX\ has
-been helpful and saved you time.
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % the bibliography
@@ -294,23 +181,6 @@ been helpful and saved you time.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % the appendices
 \appendix
-
-\chapter{Latex source}
-
-\section{diss.tex}
-{\scriptsize\verbatiminput{diss.tex}}
-
-\section{proposal.tex}
-{\scriptsize\verbatiminput{proposal.tex}}
-
-\chapter{Makefile}
-
-\section{makefile}\label{makefile}
-{\scriptsize\verbatiminput{makefile.txt}}
-
-\section{refs.bib}
-{\scriptsize\verbatiminput{refs.bib}}
-
 
 \chapter{Project Proposal}
 
