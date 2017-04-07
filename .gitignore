@@ -3,3 +3,5 @@ zdd/visualisations/
 zdd/pres/
 *.pyc
 .vscode
+*.svg
+*.dvi
