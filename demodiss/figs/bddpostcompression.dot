@@ -1,0 +1,6 @@
+digraph bdd{
+    a [style=invisible]
+    BDD [shape=rectangle]
+
+    a->BDD
+}

@@ -1,0 +1,10 @@
+digraph zdd{
+    ordering=out
+    a [style=invisible]
+    q
+    ZDD [shape=rectangle]
+    0 [shape=square]
+
+    a->q->0
+    q->ZDD [style=dotted]
+}

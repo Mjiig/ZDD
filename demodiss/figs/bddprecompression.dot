@@ -1,0 +1,8 @@
+digraph bdd{
+    a [style=invisible]
+    q
+    BDD [shape=rectangle]
+
+    a->q->BDD
+    q->BDD [style=dotted]
+}

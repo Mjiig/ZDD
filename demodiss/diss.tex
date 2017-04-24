@@ -5,7 +5,11 @@
 \usepackage{graphicx}  % allows inclusion of PDF, PNG and JPG images
 \usepackage{verbatim}
 \usepackage{docmute}   % only needed to allow inclusion of proposal.tex
+\usepackage{amsmath}
 \usepackage{amssymb}
+\usepackage[labelformat=simple]{subcaption}
+
+\renewcommand\thesubfigure{(\alph{subfigure})}
 
 \raggedbottom                           % try to avoid widows and orphans
 \sloppy
@@ -113,8 +117,8 @@ The related decision problem takes a target distance as well as a set of cities 
 
 Variants of the problem exist, for example requiring that the path start and finish in the same city, not guaranteeing that the the cost function be total (i.e.\ prohibiting certain cities from being visited consecutively) or guaranteeing that the cost function will only take integer values. Most such variant are easy to reduce to an instance of the described function problem.
 
-\section{Solving The Travelling Salesman Problem with Dynamic Programming}
-An entirely naive brute force approach to the Traveling Salesman Problem takes $\Theta(n!)$ time to run. This can be improved on significantly with dynamic programming. Let the $C$ be the set of cities and $f$ be the cost function. Define $g(S, c)$, where $S\subseteq C$ and $c\in S$ to be the lowest possible cost of a path that starts in $c$ and visits all the cities in $S$. Computing $g({c}, c)$ for all $c\in C$ is trivial, since paths containing only a single city have a cost of zero. Then for all other values of $S\subseteq C$, compute $g(S,c)$ as 
+\section{Solving The Travelling Salesman Problem with Dynamic Programming} \label{dynamicprogramming}
+An entirely naive brute force approach to the Travelling Salesman Problem takes $\Theta(n!)$ time to run. This can be improved on significantly with dynamic programming. Let the $C$ be the set of cities and $f$ be the cost function. Define $g(S, c)$, where $S\subseteq C$ and $c\in S$ to be the lowest possible cost of a path that starts in $c$ and visits all the cities in $S$. Computing $g({c}, c)$ for all $c\in C$ is trivial, since paths containing only a single city have a cost of zero. Then for all other values of $S\subseteq C$, compute $g(S,c)$ as 
 
 $$
 g(S,c)=\min_{c'\in S\setminus\{c\}}(g(S\setminus\{c\},c') + f(c,c'))
@@ -128,48 +132,118 @@ $$
 
 If $C$ has size $n$ there are $2^n$ subsets of $C$, so $n2^n$ possible sets of arguments to $g$, each of which requires evaluation of up to $n$ terms to compute, this algorithm has a time complexity of at most $\mathcal{O}(n^22^n)$.
 
-\section{Binary Decision Diagrams}
-The general principle of a Binary Decision Diagram (BDD) is to give a canonical graph based representation of boolean functions (or equivalently, sentences of propositional logic). The most trivial way to achieve this is with a binary decision tree, in which we take a rooted tree, every internal node of which has two children and is labelled with one of the inputs to the function being represented. Every node on the same layer of the tree should be labelled with the same input, and a path from root to leaf should contain exactly one node labelled with each variable.
+\section{Hamiltonian Paths as Propositional Sentences} \label{hamiltonianpath}
+An alternative approach to solving the Travelling Salesman Problem is to attempt to enumerate all of the Hamiltonian paths through the complete graph that represents each city as a node. For each Hamiltonian path we calculate the cost of the path it represents and return the lowest observed value. Although the Hamiltonian paths through a complete graph are easy to generate directly, doing so leads to a very slow algorithm for the Travelling Salesman Problem ($\Theta(n!)$). Instead we represent the set of Hamiltonian paths using a constrained set of propositional variables, which will subsequently allow us to enumerate them in a more structured way.
 
-If we label the arcs from each node to its children $T$ and $F$, and say that following an arc labelled $T$ from a node labelled $p$ corresponds to assuming that $p$ is true, and vice versa for $F$, we now have a tree in which every possible assignment of inputs to the function being represented corresponds to a unique path from the root to a leaf of the tree. We can represent the value of the function given these inputs by labelling the leaf node $1$ or $0$ for true and false respectively. Figure \ref{decisiontree} is an example of such a tree representing the function $p\wedge\neg q$.
+Given a set $C$ of cities, define a set of variables $visited_{c,i}$ for all $c\in C$ and $1\leq i\leq|C|$. An assignment to this set of variables is interpreted as encoding a path that visits city $c$ as the $i$th city in the path if and only if $visited_{c,i}$ is true. In order to ensure that only assignments corresponding to valid Hamiltonian paths are possible the following constraints can be imposed:
+
+\begin{gather*}
+visited_{c,i}\implies\bigwedge_{c'\in C\setminus c}\neg visited_{c',i} \\ \\
+visited_{c,i}\implies\bigwedge_{1\leq i'\leq |C|,i'\neq i}\neg visited_{c,i'} \\ \\
+\bigwedge_{c\in C}\bigvee_{1\leq i\leq |C|} visited_{c,i}
+\end{gather*}
+
+Intuitively speaking, the first constraint requires that at most a single city is visited at a time, the second constraint requires that each city is visited at most once and the third constraint requires that every city is visited at some point. Since the number of cities to visit and the number of opportunities for the path to visit a city are exactly equal, this implies the constraint that a city is visited at every step. In order to enumerate Hamiltonian paths of an arbitrary graph, additional constraints could be added requiring that when a given city is visited at a given point along the path a city which is connected to it by an arc in the graph is visited at the next point in the path. However in the special case I have considered in this project of representing Hamiltonian paths only in order to solve the Travelling Salesman Problem this is unnecessary because the graph of connected cities is generally complete.
+
+\section{Binary Decision Diagrams}
+Since all permutations of the nodes are Hamiltonian paths of a complete graph, there will be $n!$ possible Hamiltonian paths. Therefore in order to use an algorithm based on enumerating them to solve the Travelling Salesman Problem it is necessary to find an algorithm for propositional satisfiability that enumerates satisfying assignments in a structured way, so that computations can be shared between them. To achieve this I have used ZDDs, which are a type of decision diagram designed to most efficiently represent the satisfying assignments for a set of propositional constraints when there are few satisfying assignments and few asserted propositional letters in the satisfying assignments.
+
+The simplest data structure in the family of decision diagrams is a binary decision tree, which represents propositional sentences as a rooted tree in which internal nodes are labelled with propositional letters and leaves are labelled with $0$ or $1$. Every node at the same level of the tree is labelled with the same propositional letter, so that all paths from the root of the tree to a leaf pass through exactly one node labelled with each propositional letter, and every such path passes through nodes labelled with the propositional letters in the same order. Each internal node has exactly two children, connected to it by arcs labelled $T$ and $F$. A path from the root to a leaf of the tree corresponds to an assignment, where a propositional letter is asserted in the corresponding assignment if and only if the path follows the arc labelled $T$ out of a node labelled with the propositional letter (and therefore not asserted if and only if the path follows the arc labelled $F$ out of a node labelled with it). Since leaf nodes obviously correspond to paths in a rooted tree, assignments to the propositional letters also correspond to leaf nodes of the tree. Therefore we can use a tree to represent a propositional sentence by labelling a leaf node $1$ if the assignment to the propositional letters is corresponds to satisfies the propositional constraints, and label a leaf node $0$ otherwise.
+
+Binary decision trees give a canonical representation of propositional sentences, in that two propositional sentences are represented by the same binary decision tree if and only if they have the exact same set of satisfying assignments. An example of a a binary decision tree is shown in Figure \ref{decisiontree} which represents the propositional sentence, 
+
+$$
+(p\wedge\neg q\wedge\neg r) \vee (\neg p\wedge q\wedge r) \vee (\neg p\wedge\neg q\wedge\neg r)
+$$
+
+shown in full disjunctive normal form as each conjunctive clause corresponds to a path from the root of the tree to a leaf labelled $1$, called a $1$-path. In the shown diagram, arcs labelled $T$ are represented by solid lines, and arcs labelled $F$ are represented by dashed lines, which is a standard notation that I will use for all types of decision diagram.
 
 \begin{figure}[tbh]
-\centerline{\includegraphics{figs/decisiontree.pdf}}
-\caption{A binary decision tree representing the function $p\wedge\neg q$. Conventionally, the $T$ arc out of a node is drawn with a solid line, and the $F$ arc with a dotted line.}
+\centering
+\includegraphics{{figs/tree.dot}.pdf}
+\caption{A binary decision tree representing a propositional sentence with three satisfying assignments. Solid lines represent arcs labelled $T$, dashed lines represent arcs labelled $F$, internal nodes are elliptical and labelled with propositional letters and leaf nodes are square and labelled with either $1$ or $0$.}
 \label{decisiontree}
 \end{figure}
 
-Although this representation is easy to understand, storing it in memory is obviously extremely inefficient. An obvious initial optimization is to avoid storing multiple redundant subtrees, resulting in a directed acyclic graph, as shown in Figure \ref{basicdiagram}.
+It is immediately obvious that binary decision trees are not an efficient method of representing boolean functions and propositional sentences, due to the high degree of redundancy in the produced tree. The storage requirements of such a data structure can immediately be significantly reduced by using a directed acyclic graph instead of a tree, and having identical subtrees of a graph be shared so that only a single copy needs to be stored. Since there are only two possible distinct leaf nodes, and with $n$ propositional letters the binary decision tree has $2^n$ leaf nodes, this saves at least $2^n-2$ nodes just on the last layer of the tree, but in practice can often also save many more on higher layers, especially if the propositional constraints are known to have some structure. Figure \ref{decisiondiagram} shows a representation in this form of the same propositional sentence as represented in Figure \ref{decisiontree}.
+
+In the shown example the sharing of identical subtrees has reduced the total number of nodes to be stored by seven out of a total of fifteen. Despite this, any algorithm operating recursively on the diagram, that is at any point only able to observe a single node and carry out some operation on one or both of its child nodes will observe the exact same structure in both the tree and the directed acyclic graph.
 
 \begin{figure}[tbh]
-\centerline{\includegraphics{figs/basicdiagram.pdf}}
-\caption{A graph representing $p\wedge\neg q$ generated by sharing of redundant subtrees in Figure \ref{decisiontree}}
-\label{basicdiagram}
+\centering
+\includegraphics{{figs/diagram.dot}.pdf}
+\caption{A decision diagram representing the same propositional sentence as Figure \ref{decisiontree} but with all identical subtrees deduplicated. The same conventions on arcs and node shapes are used.}
+\label{decisiondiagram}
 \end{figure}
 
-This form is obviously not minimal however, since each node is explicitly labelled with a variable name, which could be calculated from the depth of the node within the (now implicit) tree. Instead of removing the node labels, we can instead exploit them to remove sections of the graph without loss of information. In a typical BDD, nodes are removed if both of their children are the same (ie, if the value of the relevant variable has no effect on the output of the function given the already specified variables). Figure \ref{bdd} gives an example of such a diagram. In a ZDD, nodes are instead removed if their $T$ child is the $0$ node (hence, \emph{zero suppressed}). This produces the smallest representation of $p\wedge\neg q$ of all the techniques presented, as shown in Figure \ref{zdd}.
+However the shown decision diagram is still not maximally efficient, since every internal node is explicitly labelled with a propositional letter but it is possible determine the correct propositional letter based just on the depth of the node within the diagram. Instead of removing the labels and calculating them dynamically, binary decision diagrams (BDDs) use the labels to permit further compression of the graph. The most common compression strategy used is to omit any nodes which have $T$ and $F$ arcs out of them pointing to the same child node. A schematic representation of this compression strategy is shown in Figure \ref{bddcompression}. Compressing the decision diagram shown in \ref{decisiondiagram} in this way results in the diagram shown in \ref{bdd}, which decreases the number of stored nodes further by one.
 
 \begin{figure}[tbh]
-\centerline{\includegraphics{figs/bdd.pdf}}
-\caption{$p\wedge\neg q$ represented using a typical BDD.}
+\centering
+
+\begin{subfigure}[b]{0.49\textwidth}
+\centering
+\includegraphics{{figs/bddprecompression.dot}.pdf}
+\caption{}
+\label{bddprecompression}
+\end{subfigure}
+\begin{subfigure}[b]{0.49\textwidth}
+\centering
+\includegraphics{{figs/bddpostcompression.dot}.pdf}
+\caption{}
+\label{bddpostcompression}
+\end{subfigure}
+
+\caption{A schematic representation of BDD compression. Any part of a decision diagram that matches the pattern in \subref{bddprecompression} (where the box labelled BDD is any diagram) is replaced by \subref{bddpostcompression} (with the box replaced by whatever value it had in \subref{bddprecompression}).}
+\label{bddcompression}
+\end{figure}
+
+\begin{figure}[tbh]
+\centering
+\includegraphics{{figs/bdd.dot}.pdf}
+\caption{A BDD produced by applying a standard compression strategy to the diagram shown in Figure \ref{decisiondiagram}.}
 \label{bdd}
 \end{figure}
 
+\section{Zero-Suppressed Binary Decision Diagrams}
+Zero-Suppressed Binary Decision Diagrams (ZDDs) are binary decision diagrams that have been compressed using an alternative strategy. Nodes are omitted, and replaced by the node on their $F$ arc, if their $T$ arc points to a leaf node labelled $0$. This is intended to minimise the size of the decision diagram that needs to be stored particularly when the propositional sentence being represented is sparse, where "sparse" means that the propositional sentence has few satisfying assignments, and those satisfying assignments have few asserted variables. A schematic representation of this compression strategy is shown in Figure \ref{zddcompression}. If the diagram shown in Figure \ref{decisiondiagram} is instead compressed using this strategy, the resulting diagram is the one shown in Figure \ref{zdd}. Storing this diagram in memory requires three fewer nodes than the uncompressed decision diagram and two fewer than the BDD compression strategy. 
+
 \begin{figure}[tbh]
-\centerline{\includegraphics{figs/zdd.pdf}}
-\caption{$p\wedge\neg q$ represented using a ZDD. Notice it contains one fewer node and two fewer edges than the equivalent BDD.}
+\centering
+
+\begin{subfigure}[b]{0.49\textwidth}
+\centering
+\includegraphics{{figs/zddprecompression.dot}.pdf}
+\caption{}
+\label{zddprecompression}
+\end{subfigure}
+\begin{subfigure}[b]{0.49\textwidth}
+\centering
+\includegraphics{{figs/zddpostcompression.dot}.pdf}
+\caption{}
+\label{zddpostcompression}
+\end{subfigure}
+
+\caption{A schematic representation of ZDD compression. Any part of a decision diagram that matches the pattern in \subref{zddprecompression} (where the box labelled ZDD is any part of the diagram) is replaced by \subref{zddpostcompression} (with the box replaced by whatever value it had in \subref{zddprecompression}).}
+\label{zddcompression}
+\end{figure}
+
+\begin{figure}[tbh]
+\centering
+\includegraphics{{figs/zdd.dot}.pdf}
+\caption{A ZDD produced by applying the ZDD compression strategy to the diagram shown in Figure \ref{decisiondiagram}.}
 \label{zdd}
 \end{figure}
 
-\section{Documentation}
-The course notes for the Cambridge Computer Science 1B course on Logic \& Proof contain a detailed description of how BDDs can be constructed and combined. The general form of the recursive algorithm described for combining two BDDs is the same for ZDDs, and is described in more detail in the Implementation section.
-
-The use of ZDDs for solving combinatoric problems is covered in Volume 4A of Donald Knuth's \emph{The Art Of Computer Science}, along with extensive analysis of their time and memory complexity.
+\section{Equivalence}
+Building a ZDD corresponding to the set of constraints mentioned in Section \ref{hamiltonianpath} and recursively computing the minimum distance path encoded by every subtree results in an algorithm for solving the travelling salesman problem that I expect to be equivalent to the dynamic programming solution described in Section \ref{dynamicprogramming}. I expect this to be true because the section of the graph below any given node corresponds to the set of possible paths for a particular set of nodes still to visit. This is the same set of values computed directly by the dynamic programming solution. The purpose of this project is to verify experimentally that both algorithms have the same run time complexity.
 
 \chapter{Implementation}
 
-\chapter{Evaluation}
+\section{Technology Used}
+All the code written for this project, the largest part of which is my implementation of a library for manipulating ZDDs, has been written in Python. A significant benefit of python is its native support for fast dictionaries, backed by hash maps, which I have used in several places throughout the library to cache the output of operations so they are not repeatedly recomputed and to reuse previously generated graph nodes whenever possible.  The \textit{dot} language for graph representation is used to allow ZDDs to be exported in a form which can be rendered easily using standard tools provided by the Graphviz package. This was useful both for debugging issues with the library and understanding the structure of the graphs produced by various sets of constraints, so that programs operating on them could be written.
 
+\chapter{Evaluation}
 
 \chapter{Conclusion}
 

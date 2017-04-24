@@ -1,0 +1,7 @@
+digraph zdd{
+    ordering=out
+    a [style=invisible]
+    ZDD [shape=rectangle]
+
+    a->ZDD
+}
