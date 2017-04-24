@@ -1,4 +1,4 @@
-import node
+from . import node
 
 class NodeSet:
     def __init__(self, variables):
