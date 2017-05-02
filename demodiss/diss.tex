@@ -133,7 +133,7 @@ $$
 If $C$ has size $n$ there are $2^n$ subsets of $C$, so $n2^n$ possible sets of arguments to $g$, each of which requires evaluation of up to $n$ terms to compute, this algorithm has a time complexity of at most $\mathcal{O}(n^22^n)$.
 
 \section{Hamiltonian Paths as Propositional Sentences} \label{hamiltonianpath}
-An alternative approach to solving the Travelling Salesman Problem is to attempt to enumerate all of the Hamiltonian paths through the complete graph that represents each city as a node. For each Hamiltonian path we calculate the cost of the path it represents and return the lowest observed value. Although the Hamiltonian paths through a complete graph are easy to generate directly, doing so leads to a very slow algorithm for the Travelling Salesman Problem ($\Theta(n!)$). Instead we represent the set of Hamiltonian paths using a constrained set of propositional variables, which will subsequently allow us to enumerate them in a more structured way.
+An alternative approach to solving the Travelling Salesman Problem is to attempt to enumerate all of the Hamiltonian paths through the complete graph that represents each city as a node. For each Hamiltonian path we calculate the cost of the path it represents and return the lowest observed value. Although the Hamiltonian paths through a complete graph are easy to generate directly, doing so leads to a very slow algorithm for the Travelling Salesman Problem ($\Theta(n!)$). Instead I represent the set of Hamiltonian paths using a constrained set of propositional variables, which will subsequently allow me to enumerate them in a more structured way.
 
 Given a set $C$ of cities, define a set of variables $visited_{c,i}$ for all $c\in C$ and $1\leq i\leq|C|$. An assignment to this set of variables is interpreted as encoding a path that visits city $c$ as the $i$th city in the path if and only if $visited_{c,i}$ is true. In order to ensure that only assignments corresponding to valid Hamiltonian paths are possible the following constraints can be imposed:
 
@@ -148,7 +148,7 @@ Intuitively speaking, the first constraint requires that at most a single city i
 \section{Binary Decision Diagrams}
 Since all permutations of the nodes are Hamiltonian paths of a complete graph, there will be $n!$ possible Hamiltonian paths. Therefore in order to use an algorithm based on enumerating them to solve the Travelling Salesman Problem it is necessary to find an algorithm for propositional satisfiability that enumerates satisfying assignments in a structured way, so that computations can be shared between them. To achieve this I have used ZDDs, which are a type of decision diagram designed to most efficiently represent the satisfying assignments for a set of propositional constraints when there are few satisfying assignments and few asserted propositional letters in the satisfying assignments.
 
-The simplest data structure in the family of decision diagrams is a binary decision tree, which represents propositional sentences as a rooted tree in which internal nodes are labelled with propositional letters and leaves are labelled with $0$ or $1$. Every node at the same level of the tree is labelled with the same propositional letter, so that all paths from the root of the tree to a leaf pass through exactly one node labelled with each propositional letter, and every such path passes through nodes labelled with the propositional letters in the same order. Each internal node has exactly two children, connected to it by arcs labelled $T$ and $F$. A path from the root to a leaf of the tree corresponds to an assignment, where a propositional letter is asserted in the corresponding assignment if and only if the path follows the arc labelled $T$ out of a node labelled with the propositional letter (and therefore not asserted if and only if the path follows the arc labelled $F$ out of a node labelled with it). Since leaf nodes obviously correspond to paths in a rooted tree, assignments to the propositional letters also correspond to leaf nodes of the tree. Therefore we can use a tree to represent a propositional sentence by labelling a leaf node $1$ if the assignment to the propositional letters is corresponds to satisfies the propositional constraints, and label a leaf node $0$ otherwise.
+The simplest data structure in the family of decision diagrams is a binary decision tree, which represents propositional sentences as a rooted tree in which internal nodes are labelled with propositional letters and leaves are labelled with $0$ or $1$. Every node at the same level of the tree is labelled with the same propositional letter, so that all paths from the root of the tree to a leaf pass through exactly one node labelled with each propositional letter, and every such path passes through nodes labelled with the propositional letters in the same order. Each internal node has exactly two children, connected to it by arcs labelled $T$ and $F$. A path from the root to a leaf of the tree corresponds to an assignment, where a propositional letter is asserted in the corresponding assignment if and only if the path follows the arc labelled $T$ out of a node labelled with the propositional letter (and therefore not asserted if and only if the path follows the arc labelled $F$ out of a node labelled with it). Since leaf nodes obviously correspond to paths in a rooted tree, assignments to the propositional letters also correspond to leaf nodes of the tree. Therefore a tree can be used to represent a propositional sentence by labelling a leaf node $1$ if the assignment to the propositional letters is corresponds to satisfies the propositional constraints, and label a leaf node $0$ otherwise.
 
 Binary decision trees give a canonical representation of propositional sentences, in that two propositional sentences are represented by the same binary decision tree if and only if they have the exact same set of satisfying assignments. An example of a a binary decision tree is shown in Figure \ref{decisiontree} which represents the propositional sentence, 
 
@@ -242,6 +242,147 @@ Building a ZDD corresponding to the set of constraints mentioned in Section \ref
 
 \section{Technology Used}
 All the code written for this project, the largest part of which is my implementation of a library for manipulating ZDDs, has been written in Python. A significant benefit of python is its native support for fast dictionaries, backed by hash maps, which I have used in several places throughout the library to cache the output of operations so they are not repeatedly recomputed and to reuse previously generated graph nodes whenever possible.  The \textit{dot} language for graph representation is used to allow ZDDs to be exported in a form which can be rendered easily using standard tools provided by the Graphviz package. This was useful both for debugging issues with the library and understanding the structure of the graphs produced by various sets of constraints, so that programs operating on them could be written.
+
+\section{Deduplication}
+Irrespective of compression strategy used, an important part of building and manipulating decision diagrams is ensuring that two distinct but identical sections of graph are not both stored as a part of the same decision diagram. In my library I have ensured this is the case by having all decision diagrams belong to a \textit{NodeSet} object which stores references to all the nodes generated for diagrams that belong to it. All nodes also have a unique identifier (assigned by the NodeSet to ensure there are no collisions within one). NodeSets are therefore able to store all nodes in a dictionary, with the key of each stored node being a tuple $(\mathit{variable}, \mathit{left}, \mathit{right})$ where $\mathit{variable}$ is the propositional letter the node is labelled with, $\mathit{left}$ is the identifier of the node reached by following the arc labelled $T$ of the referenced node and $\mathit{right}$ is the identifier of the node reached by following the arc labelled $F$ of the referenced node.
+
+At construction time of nodes, the constructor has access to both the propositional letter the node will be labelled with and pointers to both of the nodes children, so is able to look up whether the NodeSet is already aware of an identical node. If such a node already exists it is returned instead of a new node being constructed. Since all internal nodes are produced by this constructor and once created nodes are never modified this guarantees that two identical internal nodes are never created.
+
+Leaf nodes are constructed separately since they have no child nodes, and the constructors for leaf nodes only ever return a pair of constant values created when the NodeSet is constructed (similar to the singleton design pattern). Together these measures ensure that, within a NodeSet, any pair of nodes which are the root of identically structured diagrams will be the same node in memory.
+
+\section{Constructing ZDDs}
+The process for constructing a ZDD described in the Preparation chapter, by building a complete decision tree is possible but exceptionally inefficient, since the size of the decision tree will always be exponential in the number of propositional letters. Instead, we analytically construct a number of small ZDDs for important propositional sentences and build functions to combine or modify ZDDs representing some number of propositional sentences to produce the ZDD representing some function of those propositional sentence. Many possible operations can be implemented in this way, but my library focuses on standard logical operations such as conjunction, disjunction and negation.
+
+\subsection{Tautology ZDD}
+The ZDD for a tautology, representing for example the propositional sentence $p\vee\neg p$, corresponds to a binary decision tree with all leaf nodes labelled $1$. Since both children of every node are the same in this tree, when this tree is reduced to a graph so that there are no repeated components only a single node for each propositional letter is left, connected linearly and ending in a leaf node labelled $1$. An example of such a ZDD in shown in Figure !!REF!!. Because there are no leaf nodes labelled $0$ in the diagram the ZDD compression strategy does not reduce the graph any further.
+
+TAUTOLOGY FIGURE HERE
+
+\subsection{Contradiction ZDD}
+The ZDD for a contradiction, representing the propositional sentence $p\wedge\neg p$, corresponds to a binary decision tree with all leaf nodes labelled $0$. Temporarily ignoring the duplication in the tree and applying the ZDD compression strategy, every internal node on the last layer has a child on its $T$ arc labelled $0$, so all of them are omitted and replaced by the node on their $F$ arc, which is also a leaf node labelled $0$. Applying this process repeatedly for every layer of the original tree will eventually result in a single leaf node labelled $0$. This ZDD is shown in Figure !!REF!!. Since this diagram clearly contains no repeated sections as there is only a single node, no deduplication needs to be carried out.
+
+CONTRADICTION FIGURE HERE
+
+\subsection{ZDD of a single asserted variable}
+The ZDD for a propositional sentence that requires a single particular variable be asserted in all satisfying assignments, for example the propositional sentence $p$, corresponds to a binary decision tree with the leaf nodes labelled $0$ unless they are beneath a a node reached by following an arc labelled $T$ out of a node labelled with the relevant propositional letter (for example $p$). Transforming this tree into a decision diagram similarly to the example given for a tautology ZDD results in a single chain of nodes down to a node labelled $p$, out of which following the arc labelled $T$ results in a single chain down to a leaf node labelled $1$, and following the arc labelled $F$ results in a single chain of nodes down to a leaf node labelled $0$. Then applying the ZDD compression strategy in the same way as done for the contradiction ZDD, all of the nodes in the chain leading to a leaf labelled $0$ can be omitted and replaced by a single node labelled $0$. The ZDD compression strategy cannot be applied any further since the only arc pointing to a leaf node labelled $0$ is labelled $F$. An example of such a ZDD is given in Figure !!REF!!.
+
+SINGLE VARIABLE FIGURE HERE
+
+\section{ZDD Operations}
+Operations to combine and modify ZDDs are built as recursive functions on the nodes that make up the ZDDs. Because of the graph nature of ZDDs, it is possible that some function of a given node might be repeatedly recomputed while the ZDD is walked over recursively. Therefore, in order to avoid inefficiency, my library stores the output of all such functions in a cache which is checked before explicit computation of any function. For memory efficiency this cache is only stored for the duration of a single top level call to the function. Python's lexical scoping and dictionaries make this easy to implement.
+
+\subsection{Conjunction}
+Given two ZDDs $A$ and $B$ representing propositional sentences $a$ and $b$ respectively, a conjunction function $\mathit{conj}(A,B)$ should evaluate to a ZDD that represents $a\wedge b$. If the ZDD consisting only of a leaf node labelled $0$ is written $\mathit{False}$, then the following base cases are trivially true,
+
+\begin{gather*}
+\mathit{conj}(\mathit{False}, X) = \mathit{False} \\ \\
+\mathit{conj}(X, \mathit{False}) = \mathit{False} \\ \\
+\mathit{conj}(X, X) = X
+\end{gather*} 
+
+since $\mathit{False}$ represents a contradiction. From the last case, it is also true in particular that
+
+\begin{gather*}
+\mathit{conj}(\mathit{True},\mathit{True}) = \mathit{True}
+\end{gather*}
+
+where $\mathit{True}$ means the ZDD consisting only of a leaf node labelled $1$. It is worth noting that identities that might naively be expected to be true such as
+
+\begin{gather*}
+\mathit{conj}(\mathit{True},X) = X \\ \\
+\mathit{conj}(X, \mathit{True}) = X
+\end{gather*}
+
+are not necessarily the case because $\mathit{True}$ does not represent a tautology.
+
+If we write $\mathit{Node}(p, X, Y)$ to refer to a node labelled with propositional letter p and with the node $X$ as its child on an arc labelled $T$ and $Y$ as its other child, then
+
+$$
+\mathit{conj}(\mathit{Node}(p, A, B), \mathit{Node}(p, C, D)) = \mathit{Node}(p, \mathit{conj}(A,C), \mathit{conj}(B,D))
+$$
+
+since the conjugation is true when $p$ is asserted if and only if both input expressions are true with $p$ asserted, and likewise if $p$ is not asserted. As a special case, if $\mathit{conj}(A,C) = \mathit{False}$ then the above expression is reduced to $\mathit{conj}(B,D)$ due to the ZDD compression strategy.
+
+The only other case to consider is the conjugation of two nodes labelled with different propositional letters. Since the propositional letters are ordered in binary decision tree (and therefore ZDD) construction, if it is assumed without loss of generality (due to the commutativity of conjunction) that $p$ comes before $q$ in this order then 
+
+$$
+\mathit{conj}(\mathit{Node}(p, A, B), \mathit{Node}(q, C, D)) = \mathit{conj}(B, \mathit{Node}(q, C, D))
+$$
+
+since it is possible to treat the second argument as though it is $\mathit{Node}(p, False, \mathit{Node}(q, C, D))$ and applying the previously given rule for conjugating nodes with the same label gives
+
+$$
+\mathit{Node}(p, \mathit{conj}(A, False), \mathit{conj}(B, \mathit{Node}(q, C, D)))
+$$
+
+the first part of which is a known base case giving
+
+$$
+\mathit{Node}(p, False, \mathit{conj}(B, \mathit{Node}(q, C, D)))
+$$
+
+and applying the ZDD compression scheme to delete nodes with $\mathit{False}$ as their first child produces the stated result.
+
+A very similar process can be applied for disjunction with slightly different base cases. However more care is needed in the case of other operations, especially those that are capable of implicitly or explicitly negating a propositional sentence.
+
+\section{Negating ZDDs}
+Similarly to conjunction, a negation function should take a ZDD $A$ representing a propositional sentence $a$ and return a ZDD $\mathit{neg}(A)$ representing $\neg a$. Unfortunately such a negation function cannot be written as simply as in the case of conjunction as disjunction because the ZDD compression strategy introduces implicit paths to leaf nodes labelled $0$ in the ZDD $A$, which must result in explicit paths to leaf nodes labelled $1$ in $\mathit{neg}(A)$. In order to handle this a implementation of the $\mathit{neg}$ function must consider what letter it expects a node at the root of a diagram to be labelled  with. If the actual label and the expected label are different, the diagram must contain some number of implicit omitted nodes, which due to the nature of the ZDD compression strategy we know would have a leaf labelled $0$ on their $T$ arc. Since a leaf labelled $0$ corresponds to a contradiction, and the negation of a contradiction is a tautology, in the negation of such a diagram it is necessary to reinsert the omitted nodes, making their $T$ child the root of a tautology in the propositional letters not already used higher in the diagram, and their $F$ child the continuation of the negation of the input diagram from the next expected propositional letter. Figure !!REF!! contains an example of a non trivial negation.
+
+NEGATION FIGURE HERE
+
+\section{Implication between ZDDs}
+The final operator I built for working on ZDDs is an implication operator, which takes two ZDDs $A$ and $B$ representing propositional sentences $a$ and $b$ respectively and produces a ZDD $\mathit{imp}(A, B)$ which represents the propositional sentence $a\implies b$. It would be possible to implement this just as 
+
+$$
+\mathit{imp}(A, B) = \mathit{disj}(\mathit{neg}(A), B)
+$$
+
+since it is a standard identity in propositional logic that $a\implies b$ is exactly equivalent to $\neg a\vee b$ however since the running time of all these operations is related to the size of the input ZDDs, and because it is possible for $\mathit{neg}(A)$ to be a much larger ZDD than $A$ it is desireable to implement it more directly. However it can be implemented very similarly to conjunction and disjunction with additional care taken over cases were the first argument can be false, as with negation.
+
+\section{Dynamic Programming Solution To TSP}
+Although the mathematical description of the dynamic programming solution to the Travelling Salesman Problem was given in terms of a function computed recursively in the Preparation chapter, a more iterative approach leads to both simpler code and somewhat more efficient memory usage. Because $g(c, S)$ is computed entirely as a function of values of $g(c', S')$ where $S'$ is exactly one element smaller than $S$ we can compute all the values of $g(c, S)$ for $S$ of size $n$ given all the values of $g(c,S')$ for $S'$ of size $n-1$. This suggests it is worth computing $g(c,S)$ for $|S|=1$ initially (which is the trivial base case), then for $|S|=2$ and so on. Once $g(c,S)$ has been computed for all $|S|=n$ there is no further use for the values of $g(c,S')$ with $|S'|=n-1$ so they can be deleted in order to save memory. 
+
+Generating values this way however requires an efficient method for enumerating all the subsets of $C$ of a specified size. Fortunately there are standard algorithms for this, and Python provides a standard library method that gives a generator for subsets of a given size of a set, which allows them to be enumerated without explicitly storing a list of them. Running the algorithm above until $n=|C|$ and so $|S|=|C|$, so $S=C$ guarantees all values of $g$ have been computed and we are able to compute the overall solution to the problem as described in the Preparation chapter.
+
+\section{Efficiently Building Large ZDDs}
+In order to build a ZDD that encodes the possible Hamiltonian paths through a complete graph, I use the ZDD library I created to encode the set of constraints outlined in Section \ref{hamiltonianpath}. Since the library allows any python object that can be used as a dictionary key to be used as a propositional letter identifier the propositional variable $\mathit{visited}_{c,i}$ is just represented by the python tuple $(i, j)$ where $j$ is the index of $c$ in a list of all cities. Representing cities using their index in a list of cities instead of directly using a data structure representing the city in the propositional letter identifiers saves memory, since the data structure representing a city will generally contain at least two numbers representing a position and a propositional letter identifier is stored on every node so slight decreases in their size can drastically reduce total memory usage. 
+
+In order to enforce all of the constraints required by Section \ref{hamiltonianpath}, my algorithm starts with a ZDD representing a tautology and takes the conjunction of it with with ZDDs representing each of the constraints in turn. Because the time complexity of conjunction of ZDDs is directly related to both their size and the size of the result of the conjunction, the order in which the ZDDs representing the constraints are combined together has a large impact on performance. The objective in reordering the combination of the constraints is to avoid producing large intermediate ZDDs whenever possible. This is important because it is possible to have a set of operations $f(g(A))$ on some ZDD $A$ such that both $A$ and the final result are small, but $g(A)$ is much bigger, resulting in operations being expensive even though no large ZDD is ever directly accessed.  Although the final ZDD produced in this case is actually also extremely large, much larger ZDDs are possible and so it is worth being careful to avoid generating such when they are unnecessary. To do this I take advantage of the commutativity and associativity of conjunction and disjunction to alter the order in which constraints are applied. I also use the distributive properties of conjunction and disjunction with respect to one another and implication to combine multiple constraints, reducing the total number of times that the main ZDD being built has to be combined with another ZDD, since this is the most expensive operation due to the size of the main ZDD. This ordering was optimised experimentally by building Hamiltonian path ZDDs in various different ways and measuring the total amount of memory used over the run time. The order using the least memory built the smallest number of nodes so is also likely to reliably give good performance. The arrangement I found to be ideal for memory efficiency was to apply the constraints in the following order
+
+\begin{gather*}
+\bigwedge_{c\in C}\bigvee_{1\leq i\leq |C|} visited_{c,i} \\
+visited_{c,i}\implies\bigwedge_{c'\in C\setminus c}\neg visited_{c',i} \\
+visited_{c,i}\implies\bigwedge_{1\leq i'\leq |C|,i'\neq i}\neg visited_{c,i'} \\
+\end{gather*}
+
+It is also important that the ZDD for the conjunction as the consequent of the implication in the second and third constraints be computed before the ZDD for the implication is. These equivalent constraints
+
+\begin{gather*}
+\bigwedge_{c'\in C\setminus c}visited_{c,i}\implies\neg visited_{c',i} \\
+\bigwedge_{1\leq i'\leq |C|,i'\neq i}visited_{c,i}\implies\neg visited_{c,i'} \\
+\end{gather*}
+
+are significantly less efficient to build ZDDs for, since they involve operating on the large overall ZDD much more frequently.
+
+Finally, by imposing an order on the cities, a small optimisation can be made to these two constraints. If the cities listed such that each is referred to by $c_j$ for $1\leq j\leq |C|$ and $visited_{j,i}$ is used instead of $visited_{c,i}$ where $c_j=c$, then the above constraints are exactly identical to the following:
+
+\begin{gather*}
+\bigwedge_{1\leq j\leq |C|}\bigvee_{1\leq i\leq |C|} visited_{c,j} \\
+visited_{j,i}\implies\bigwedge_{j\leq j'\leq |C|}\neg visited_{j',i} \\
+visited_{j,i}\implies\bigwedge_{i\leq i'\leq |C|,i'\neq i}\neg visited_{c,i'} \\
+\end{gather*}
+
+Since this results in fewer terms in the consequent of the implications in these constraints, they have smaller ZDDs which are easier to compute.
+
+\section{Weak Dictionaries}
+The primary restriction on creating larger ZDDs corresponding to bigger instances of the Travelling Salesman Problem is the amount of memory available. ZDDs are extremely memory hungry data structures and the specific instances of them needed to represent the Hamiltonian cycles I am using to solve the Travelling Salesman Problem grow exponentially in the number of cities in the problem. In addition because the NodeSet stores references to all nodes that have been created for deduplication reasons they cannot be garbage collected by the the language until the NodeSet has been garbage collected, and because all nodes store a reference to their NodeSet a NodeSet cannot be garbage collected so long any references exist to any of the nodes it contains. Consequently so long as a single node is being used from a given NodeSet, all nodes that have ever been produced from that NodeSet are stored in memory. This is obviously inefficient, especially if some of the intermediate ZDDs used to build a final ZDD are much larger than the final result.
+
+This memory cost is heavily mitigated by using a \textit{weak dictionary} as the cache. This data structure behaves exactly like a normal dictionary except that it does not count as holding a reference to the objects it contains for the purposes of garbage collection. Entries in the weak dictionary can silently be removed from the dictionary and deleted from memory if the only remaining references to them are from weak dictionaries (or other sorts of weak reference). Using this in a NodeSet to store references to nodes means that once a node is not referenced anywhere except by the NodeSet it will be deleted from memory in the next garbage collection cycle. This means nodes that were generated as part of intermediate diagrams but that were not included in subsequent diagrams do not increase our memory burden.
+
+It's worth noting this is only worthwhile because the cache used in a NodeSet is itself only a memory saving device to avoid multiple identical nodes being created. Creating a new node and finding an equal preexisting node in the NodeSet cache have approximately the same time cost so deleting a node from the cache does not increase subsequent computation costs (and is safe in terms of memory usage as if the node has been deleted from the weak dictionary it cannot be in use anywhere else, so later construction of an identical node will not cause duplication). In the case where dictionaries are used to cache the output of functions performing operations on ZDDs it would not be appropriate to use weak dictionaries since those caches are used to save computation on functions that may be recomputed repeatedly. Even if no reference to a previously computed value exists the same function may be computed again, in which case keeping the value in memory is worthwhile even though all other references to it have been lost.
+
+In python weak dictionaries could be built using the weak reference library that is part of the language's standard library, but as they are such a common use of weak references a standard implementation of them is also provided, which I have used.
+
 
 \chapter{Evaluation}
 
