@@ -1,4 +1,5 @@
 from . import node
+import weakref
 
 class NodeSet:
     def __init__(self, variables):
@@ -6,7 +7,7 @@ class NodeSet:
         # True and false never fetched from cache but need unique counters still
         self.trueNode=node.TrueNode(self, 0)
         self.falseNode=node.FalseNode(self, 1)
-        self.nodes={}
+        self.nodes=weakref.WeakValueDictionary()
         self.nextCounter=2
 
     def getNode(self, variable, t, f):
