@@ -1,6 +1,38 @@
+import math
+
 from zdd import nodeset
 from zdd import node
 from zdd.operations import Operations
+
+def dist(a, b):
+    return math.sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2)
+
+def evaluate(cities, diagram):
+    cache = {}
+    def inner(node):
+        if node.isLeaf():
+            return {}
+        
+        cityNum = node.getVariable()[1]
+        city = cities[cityNum]
+        taken = inner(node.t)
+        notTaken = inner(node.f)
+
+        costs = notTaken.copy()
+
+
+        if taken:
+            takenCost = min([dist(city, cities[child]) + taken[child] for child in taken])
+            costs[cityNum] = takenCost
+        else:
+            costs[cityNum] = 0
+
+        cache[node.counter] = costs
+
+        return costs
+
+    return min(inner(diagram).values())
+
 
 def zddTSPSolver(cities):
     n = len(cities)
@@ -42,4 +74,4 @@ def zddTSPSolver(cities):
         current = Operations.conjunction(current, for_city)
         print(j)
 
-    return current
+    return evaluate(cities, current)
