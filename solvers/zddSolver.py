@@ -49,7 +49,6 @@ def zddTSPSolver(cities):
         for j in range(n):
             line = Operations.disjunction(line, assertions[(i,j)])
         current = Operations.conjunction(current, line)
-        print(i)
 
     for i in range(n):
         at_time = ns.tautology()
@@ -60,7 +59,6 @@ def zddTSPSolver(cities):
             imp = Operations.implication(assertions[(i,j)], given_city)
             at_time = Operations.conjunction(at_time, imp)
         current = Operations.conjunction(current, at_time)
-        print(i)
 
     for j in range(n):
         for_city = ns.tautology()
@@ -72,6 +70,5 @@ def zddTSPSolver(cities):
             imp = Operations.implication(assertions[(i,j)], given_time)
             for_city = Operations.conjunction(for_city, imp)
         current = Operations.conjunction(current, for_city)
-        print(j)
 
     return evaluate(cities, current)
