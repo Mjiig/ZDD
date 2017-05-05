@@ -12,6 +12,9 @@ def evaluate(cities, diagram):
     def inner(node):
         if node.isLeaf():
             return {}
+
+        if node.counter in cache:
+            return cache[node.counter]
         
         cityNum = node.getVariable()[1]
         city = cities[cityNum]
