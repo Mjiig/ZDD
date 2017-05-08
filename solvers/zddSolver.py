@@ -9,7 +9,10 @@ def dist(a, b):
 
 def evaluate(cities, diagram):
     cache = {}
+    count = 0
     def inner(node):
+        nonlocal count
+        count = count + 1
         if node.isLeaf():
             return {}
 
@@ -34,7 +37,7 @@ def evaluate(cities, diagram):
 
         return costs
 
-    return min(inner(diagram).values())
+    return (min(inner(diagram).values()), count)
 
 
 def zddTSPSolver(cities):
@@ -46,6 +49,8 @@ def zddTSPSolver(cities):
     negations = {x: Operations.negation(assertions[x]) for x in variables}
 
     current = ns.tautology()
+
+    startCount = Operations.count
 
     for i in range(n):
         line = ns.contradiction()
@@ -74,4 +79,8 @@ def zddTSPSolver(cities):
             for_city = Operations.conjunction(for_city, imp)
         current = Operations.conjunction(current, for_city)
 
-    return evaluate(cities, current)
+    operationCount = Operations.count - startCount
+
+    ret, counter = evaluate(cities, current)
+
+    return (ret, counter + operationCount)

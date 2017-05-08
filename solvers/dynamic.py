@@ -7,16 +7,18 @@ def dist(a, b):
 
 def tryCombinations(items, n):
     if n == 1:
-        return {frozenset([x]): {x:0} for x in items}
+        return ({frozenset([x]): {x:0} for x in items}, 1)
     ret = {}
-    costs = tryCombinations(items, n-1)
+    costs, count = tryCombinations(items, n-1)
     for comb in itertools.combinations(items, n):
         comb = frozenset(comb)
         ret[comb] = {}
         for city in comb:
             ret[comb][city] = min(costs[comb-{city}][s]+dist(city, s) for s in comb-{city})
-    return ret
+            count += n
+    return (ret, count)
 
 def dynamicTspSolver(items):
-    costs = tryCombinations(items, len(items))[frozenset(items)]
-    return min(costs.values())
+    costs, count = tryCombinations(items, len(items))
+    costs = costs[frozenset(items)]
+    return (min(costs.values()), count)

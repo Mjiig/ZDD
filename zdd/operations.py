@@ -1,5 +1,7 @@
 class Operations:
 
+    count = 0
+
     @staticmethod
     def varMax(a,b):
         if Operations.varLessThan(a, b):
@@ -45,6 +47,7 @@ class Operations:
         ns = diagram.owner
         
         def inner(node):
+            Operations.count+=1
             # Base cases
             if node.isTrue():
                 return ns.falseNode
@@ -74,6 +77,7 @@ class Operations:
         ns = diagram1.owner
 
         def inner(node1, node2):
+            Operations.count+=1
             n1 = min(node1.counter, node2.counter)
             n2 = max(node1.counter, node2.counter)
 
@@ -109,6 +113,7 @@ class Operations:
         ns = diagram1.owner
 
         def inner(node1, node2):
+            Operations.count += 1
             n1 = min(node1.counter, node2.counter)
             n2 = max(node1.counter, node2.counter)
 
@@ -145,6 +150,7 @@ class Operations:
         ns = diagram1.owner
 
         def inner(node1, node2):
+            Operations.count += 1
             if (node1.counter, node2.counter) in cache:
                 return cache[(node1.counter, node2.counter)]
 
@@ -181,6 +187,7 @@ class Operations:
         ns = diagram1.owner
 
         def inner(node1, node2):
+            Operations.count+=1
             n1 = min(node1.counter, node2.counter)
             n2 = max(node1.counter, node2.counter)
 
