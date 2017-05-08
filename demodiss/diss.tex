@@ -385,6 +385,20 @@ In python weak dictionaries could be built using the weak reference library that
 
 
 \chapter{Evaluation}
+\section{Instance Generation}
+In order to test solvers for the Travelling Salesman problem I need to be able to generate instances of the problem to run the solvers on. Although the Travelling Salesman problem in general handles shortest path in any complete graph, a reasonable set of problem instances can be produced more simply by assigning each node a location in two dimensional Euclidean space. The cost of the arc between a pair of nodes is then the Euclidean distance between them. This significantly reduces the complexity of building a problem instance since only $2n$ coordinates need to be chosen if there are $n$ cities, rather than $n(n+1)/2$ independent arc costs. Two different problem instance generators were used, the first generated cities spaced uniformly around a unit circle centered on the origin (so for four cities, they would be placed at $(0,1)$, $(1,0)$, $(0, -1)$ and $(-1, 0)$) which means that the correct minimum path length can easily be determined analytically by hand. Since the minimum path is always achieved by moving around the circle in either direction, never skipping a city, its length will be
+$$
+(n-1)2\sin(\pi/n)
+$$
+which tends towards $2\pi$ in the limit as $n$ tends to infinity. By running both solvers on problem instances generated this way, and comparing the produced result with the the analytically expected result it is possible to manually confirm the solvers give the correct answer for problem instances larger than those for which it is possible to compute an answer by hand using a more brute force method. 
+
+The second instance generator placed cities randomly in the unit square with corners $(0,0)$, $(1,0)$, $(1,1)$ and $(0,1)$.  These problem instances were used in the final tests of the solvers performance and for validation that both of the solvers produced the same answers in less trivial problem instances.
+
+\section{Validation}
+In addition to validating both the solvers being inspected on problem instances with known analytical solutions, further validation was done by producing another solver, which uses an extremely simple, but slow, brute force algorithm. This algorithm works by independently computing the cost for every possible path through the cities. Since there is one path per possible permutation of the list of cities, this algorithm considers $\mathcal{O}(n!)$ possible paths, each of which takes $\mathcal{O}(n)$ time to evaluate for a total run time of $\mathcal{O}(n(n!))$. Because of its factorial run time it is only possible to run this algorithm on problem instances of very small size. However it is extremely simple to implement in Python due to the languages built in support for generating permutations, so can reliably be implemented correctly. By comparing the output of this algorithm to that of the other solvers I am investigating on a large number of random problem instances and confirming all three algorithms give the same answer I can be confident that all three algorithms are correctly solving the Travelling Salesman Problem.
+
+\section{Metrics}
+In order to measure the complexity of both solvers, I measured the amount o
 
 \chapter{Conclusion}
 
