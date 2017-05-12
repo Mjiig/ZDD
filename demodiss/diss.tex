@@ -398,9 +398,168 @@ The second instance generator placed cities randomly in the unit square with cor
 In addition to validating both the solvers being inspected on problem instances with known analytical solutions, further validation was done by producing another solver, which uses an extremely simple, but slow, brute force algorithm. This algorithm works by independently computing the cost for every possible path through the cities. Since there is one path per possible permutation of the list of cities, this algorithm considers $\mathcal{O}(n!)$ possible paths, each of which takes $\mathcal{O}(n)$ time to evaluate for a total run time of $\mathcal{O}(n(n!))$. Because of its factorial run time it is only possible to run this algorithm on problem instances of very small size. However it is extremely simple to implement in Python due to the languages built in support for generating permutations, so can reliably be implemented correctly. By comparing the output of this algorithm to that of the other solvers I am investigating on a large number of random problem instances and confirming all three algorithms give the same answer I can be confident that all three algorithms are correctly solving the Travelling Salesman Problem.
 
 \section{Metrics}
-In order to measure the complexity of both solvers, I measured the amount o
+In order to measure the complexity of both solvers, I measured the amount of work done by the solvers according to two metrics, real time taken and number of logical operations performed. Measuring logical operations ensures the results are not directly affected by the performance characteristics of my computer especially with relation to caching behaviour or irregular CPU load due to system processes. However since measurement of logical operations can easily be miscalculated if not all the operations being counted actually have a constant cost. It is therefore advantageous to use both and ensure they given corresponding results.
+
+In order to measure the number of logical operations taken by both algorithms I modified both the ZDD library and the solver programs. The ZDD library was modified to count the total number of calls to any of the recursive ZDD operation functions, which could have been achieved using Python's metaprogramming features but in practice was simpler to implement manually. Since the operations all call themselves recursively in order to operate on child nodes and do not loop over anything number of functions called within the ZDD operations module is directly proportional to amount of computation done.
+
+In the ZDD solver, the cost of building the ZDD is measured as the number of operations performed by the ZDD manipulations, plus one for every node of the ZDD processed to produce a final answer. Since this final evaluation is also implemented recursively I again measure number of calls to the evaluation function. Because the dynamic programming solver is implemented in a more imperative style, the operation count is the number of times the innermost loop of the solver is evaluated.
+
+In order to collect both metrics I wrote a testing script that generates random problem instances, evaluates them using both solvers and confirms that both solvers gave the same answer. The tester records the wall time before and after running each solver and extracts the logical operation count from the solvers, so as to record both measured metrics. For every size of problem instance being tested the tester generates multiple instances of that size and returns both the mean and the variance of both the time taken and number of logical operations. I expect the variance in the number of logical operations to be zero due to the deterministic nature of the algorithms. The tester performs this process for every size of problem instance from one to the largest feasible size.
+
+\section{Process Separation}
+Because ZDDs are so memory hungry, there is a risk that measuring the performance of an algorithm that uses them heavily will be highly influenced by the performance of the underlying memory allocator. Because Python is a garbage collected language I have no control over the allocation strategy, so want to ensure that all test runs start with a similar allocator state to avoid this overly affecting the results. Experimentally I observed that Python's garbage collector often does not release unused memory back to the operating system even after the objects being stored in it have been deleted. In order to prevent this having an effect on the observed results, either due to lack of memory slowing down ZDD algorithms or Python's allocator working faster when already having allocated memory from the operating system, I made use of the standard library \textit{multiprocessing} module to force every run of the solvers to take place in a different Python process. By killing the Python processes that were hosting finished test runs of solvers I can guarantee that all memory used by a solver is released back to the operating system at the end of a test run, and by starting every test run in a fresh Python process I can ensure that every test run starts with the same allocator state. This ensures that all test runs of both solvers take place in a similar environment to avoid unnecessary bias in the results.
+
+\section{Results}
+Results were collected from problem instances from size 1 to 15, which is the largest size viable for the ZDD based solver due to the amount of memory available on my computer. For each size of input, the solvers were tested on 30 random problem instances, generated using the random instance generator. For the two solvers tested, the mean and variance of the times measured are shown in Table \ref{timeResults}, and the number of logical operations measured for each algorithm is shown in Table \ref{operationsResults}. As expected the variance in the number of logical operations was $0$ in all cases so is not shown.
+
+\begin{table}[h]
+\centering
+\begin{tabular}[h]{r | c c | c c}
+ & \multicolumn{2}{|c|}{ZDD} & \multicolumn{2}{|c}{Dynamic Programming} \\
+\parbox[b]{1.5cm}{Number of cities} & Time/s & Variance/s & Time/s & Variance/s \\
+\hline
+1  & $8.29\times 10^{-4}$ & $1.1\times 10^{-8}$ & $5.85\times 10^{-5}$ & $1.1\times 10^{-10}$ \\
+2  & $6.05\times 10^{-3}$ & $1.2\times 10^{-6}$ & $1.62\times 10^{-4}$ & $1.2\times 10^{-9}$ \\
+3  & $2.79\times 10^{-2}$ & $4.5\times 10^{-6}$ & $2.42\times 10^{-4}$ & $1.9\times 10^{-9}$ \\
+4  & $1.06\times 10^{-1}$ & $3.4\times 10^{-6}$ & $4.66\times 10^{-4}$ & $8.2\times 10^{-9}$ \\
+5  & $3.53\times 10^{-1}$ & $6.4\times 10^{-5}$ & $1.07\times 10^{-3}$ & $5.9\times 10^{-8}$ \\
+6  & $9.94\times 10^{-1}$ & $7.1\times 10^{-3}$ & $2.92\times 10^{-3}$ & $2.4\times 10^{-7}$ \\
+7  & $2.31\times 10^{0}$ & $1.8\times 10^{-4}$ & $6.24\times 10^{-3}$ & $1.2\times 10^{-6}$ \\
+8  & $5.01\times 10^{0}$ & $1.3\times 10^{-3}$ & $1.36\times 10^{-2}$ & $4.7\times 10^{-6}$ \\
+9  & $9.95\times 10^{0}$ & $4.8\times 10^{-3}$ & $2.87\times 10^{-2}$ & $3.8\times 10^{-6}$ \\
+10 & $1.85\times 10^{1}$ & $4.4\times 10^{-3}$ & $6.49\times 10^{-2}$ & $5.1\times 10^{-6}$ \\
+11 & $3.32\times 10^{1}$ & $1.1\times 10^{-2}$ & $1.54\times 10^{-1}$ & $3.8\times 10^{-6}$ \\
+12 & $5.67\times 10^{1}$ & $1.4\times 10^{-2}$ & $3.68\times 10^{-1}$ & $2.2\times 10^{-5}$ \\
+13 & $9.50\times 10^{1}$ & $4.5\times 10^{-2}$ & $8.61\times 10^{-1}$ & $4.3\times 10^{-5}$ \\
+14 & $1.58\times 10^{2}$ & $7.3\times 10^{-2}$ & $2.00\times 10^{0}$ & $3.5\times 10^{-5}$ \\
+15 & $2.63\times 10^{2}$ & $2.3\times 10^{-1}$ & $4.64\times 10^{0}$ & $1.6\times 10^{-3}$
+\end{tabular}
+\caption{}
+\label{timeResults}
+\end{table}
+
+Since the variances in \ref{timeResults} are three orders of magnitude less than the means in the vast majority of cases and always at least two orders of magnitude less, it is reasonable to treat the means as representative values the expected time for the solvers to process a problem instance of a given size.
+
+\begin{table}[h]
+\centering
+\begin{tabular}[h]{r | c | c}
+\parbox[b]{1.5cm}{Number of cities} & ZDD & \parbox[b]{2.25cm}{Dynamic\\Programming} \\
+\hline
+1 & 25 & 1 \\
+2 & 298 & 5 \\
+3 & 1608 & 22 \\
+4 & 5603 & 77 \\
+5 & 15179 & 236 \\
+6 & 35081 & 667 \\
+7 & 72994 & 1786 \\
+8 & 141767 & 4601 \\
+9 & 264225 & 11512 \\
+10 & 483841 & 28151 \\
+11 & 888576 & 67574 \\
+12 & 1664111 & 159733 \\
+13 & 3212295 & 372724 \\
+14 & 6413529 & 860147 \\
+15 & 13205310 & 1966066
+\end{tabular}
+\caption{}
+\label{operationsResults}
+\end{table}
+
+Graphs plotting the amount of time taken by both solvers on average against the number of cities in the problem instance are shown in Figures \ref{zddtime} and \ref{dyntime}. Although these graphs are superficially the same shape and clearly exponential I want to confirm that they both tend towards the same asymptotic complexity and that that complexity is $\mathcal{O}(n^22^n)$.
+
+\begin{figure}
+\centering
+\includegraphics{graphs/n-zddT.pdf}
+\caption{A plot of the number of seconds taken by the ZDD based solver for problem instances with numbers of cities varying from 1 to 15.}
+\label{zddtime}
+\end{figure}
+
+\begin{figure}
+\centering
+\includegraphics{graphs/n-dynT.pdf}
+\caption{A plot of the number of seconds taken by the dynamic programming based solver for problem instances with numbers of cities varying from 1 to 15.}
+\label{dyntime}
+\end{figure}
+
+First, it is worthwhile to check that the two metrics of computation done that I've measured are in fact similar. Becuase logical operations are counted differently for the dynamic programming and ZDD based solvers this needs to be done separately for both. Figure \ref{timeoperations} shows the relationship between time taken and number of operations performed for both solvers. It is immediately obvious that these relationships are not linear as desired, and unexpectedly show that more operations are being carried out per second when the solvers process larger instances than when they process smaller ones. This surprised me, as I thought the most likely error in operation counting would be some operation that was actually linear in number of cities (such as finding the minimum of a list of costs) being counted as a constant cost. I believe the opposite trend has arisen not due to errors in the operation counting but due to either the Python or Linux memory allocators performing better (per allocation) on the solvers when they have run for longer. This might occur because the allocators are able to better predict the code's behaviour and so optimise for it as it runs longer, or because the Python allocator ends up holding much more system memory in the longer test runs and so can work faster by recycling recently garbage collected objects instead of performing fresh allocations more often. Because of this, I have used operation count for all other analysis in this section because I expect it to better approximate the amount of computation being done in the solvers themselves, or equivalently the amount of computation that would have to be done if a similar set of solvers were to be written in a language with manual memory management and carefully optimised to handle allocation efficiently.
+
+\begin{figure}[tbh]
+\centering
+
+\begin{subfigure}[b]{0.8\textwidth}
+\centering
+\includegraphics[width=0.99\textwidth]{graphs/zddT-zddO.pdf}
+\caption{}
+\end{subfigure}
+\begin{subfigure}[b]{0.8\textwidth}
+\centering
+\includegraphics[width=0.99\textwidth]{graphs/dynT-dynO.pdf}
+\caption{}
+\end{subfigure}
+
+\caption{Graphs showing the relationship between number of logical operations counted and total running time for both solver algorithms.}
+\label{timeoperations}
+\end{figure}
+
+In order to compare the measured complexity with the expected complexity of $\mathcal{O}(n^22^n)$ I have plotted for each size of problem instance evaluated the number of operations performed in actual test runs against the value of the expected complexity. If my hypothesis regarding the expected complexity is correct a linear relationship should be seen. Figure \ref{dynoperations} does appear to be linear which initially implies that the hypothesis does hold for the dynamic programming solver, however it is harder to see if Figure \ref{zddoperations} is linear due to the high density of points in the bottom left corner which appear to curve slightly. The curvature is convex, which would suggest that if the ZDD solver does not have the expected complexity then it is actually faster than expected. I believe this may appear to be the case because the cost of the algorithm is dominated by asympotically fast but practically expensive operations in the case of small $n$, which mean the solvers complexity appears to grow slower than the expected function but is in fact just approaching it from above. We can check the complexity of the ZDD solver is not lower than expected by plotting the number of operations performed by a component of it which does have the expected complexity, a graph of which is shown in Figure \ref{zddmodoperations}. The linearity of \ref{zddmodoperations} strongly suggests that the convex curvature of \ref{zddoperations} is only a property of small $n$.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.7\textwidth]{graphs/y-dynO.pdf}
+\caption{A plot of the number of operations taken by the dynamic programming solver against the expected complexity for each instance size.}
+\label{dynoperations}
+\end{figure}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.7\textwidth]{graphs/y-zddO.pdf}
+\caption{A plot of the number of operations taken by the ZDD solver against the expected complexity for each instance size.}
+\label{zddoperations}
+\end{figure}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.7\textwidth]{graphs/y-zddMO.pdf}
+\caption{A plot of the number of operations taken by the ZDD solver in its final stage (which is expected to have the same complexity as the overal algorithm) against the expected complexity for each instance size.}
+\label{zddmodoperations}
+\end{figure}
+
+In order to more concretely and analytically confirm that the graphs in Figures \ref{dynoperations} and \ref{zddmodoperations} are linear, I have produced log-log plots of the same data. This spaces out the densely packed points for easier inspection, and means I can check the original graph for linearity by measuring a gradient of one in the log-log plot. The dynamic programming solver log-log plot in Figure \ref{logdynoperations} is clearly linear, and a line of best fit computed using Matlab and plotted on the graph has a gradient of $0.97$, indicating a linear relationship between the two quantities. The log-log plot for the full operation count for the ZDD based solver shown in Figure \ref{logzddoperations} is significantly less linear, and again appears to be convex suggesting this algorithm's run time is dominated by a slower growing function for small $n$. The gradient of best fit computed at $0.83$ by Matlab further indicates that the data does not precisely match the expected shape.
+
+However, a log-log plot of the modified operation count, as shown in Figure \ref{logzddmodoperations} is close to perfectly linear. The best fit line shown was computed ignoring the first two points since the graph does not appear to converge to a straight line immediately, but the fit line has a gradient of $0.97$ which strongly suggests a linear relationship between the modified operation count and the expected complexity.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.7\textwidth]{graphs/logy-logdynO.pdf}
+\caption{A log-log plot of the number of operations taken by the dynamic programming solver against the expected complexity for each instance size. The line drawn is a line of best fit with gradient $0.97$.}
+\label{logdynoperations}
+\end{figure}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.7\textwidth]{graphs/logy-logzddO.pdf}
+\caption{A log-log plot of the number of operations taken by the ZDD solver against the expected complexity for each instance size. The line drwan is a line of best fith with gradient $0.83$.}
+\label{logzddoperations}
+\end{figure}
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.7\textwidth]{graphs/logy-logzddMO.pdf}
+\caption{A log-log plot of the number of operations taken by the ZDD solver in its final stage (which is expected to have the same complexity as the overal algorithm) against the expected complexity for each instance size. The line drawn is a line of best fit, computed exlcluding the first two data points, with gradient $0.97$.}
+\label{logzddmodoperations}
+\end{figure}
+
+\section{Interpretation}
+The linear relationship between the operation count and the expected complexity for the dynamic programming solver is clearly shown by the measured results, so my experimentation has demonstrated that the dynamic programming algorithm has the complexity $\mathcal{O}(n^22^n)$.
+
+The collected data seems to show that the ZDD based solver's complexity actually grows a little slower than expected. However by considering a subcomponent of the algorithm and measuring the number of operations it is performing I have collected data that demonstrates that at least part of the ZDD solver has the complexity $\mathcal{O}(n^22^n)$. Since complexity theory deals with the asymptotic case, if any part of the algorithm's run time grows as $\mathcal{O}(n^22^n)$, the run time for the entire algorithm must grow as at least $\mathcal{O}(n^22^n)$. I believe the combination of these observations, that the algorithm initially appears to grow in complexity slowly, but contains at least one component that grows as expected, suggests a complexity of the form $(cg(c) + dn^22^n)$ where $g(n)\in o(n^22^n)$ but $c \gg d$ so the run time initially appears to grow slower than $\mathcal{O}(n^22^n)$ even though that is the correct asymptotic complexity. 
 
 \chapter{Conclusion}
+Having implemented both a generic ZDD manipulation library, and Travelling Salesman Problem solvers based on both a standard dynamic programming algorithm and a novel ZDD based algorithm, with instrumentation to measure the amount of computation done by both, I believe I have confirmed my original hypothesis. That is, both algorithms have been experimentally confirmed to have the expected complexity of $\mathcal{O}(n^22^n)$. Although the ZDD based solver initially appeared to have a lower complexity, I have shown that a component of it has the expected complexity and therefore the entire algorithm must also have at least the expected complexity, and from these two observations it is reasonable to conclude that the asymptotic complexity of the ZDD based solver is in fact as expected.
+
+To further evalutate this hypothesis I would want to obtain more powerful hardware, especially computers set up to provide more memory. The limiting factor on the size of instance that could be evaluated in these tests was the amount of memory needed by the ZDD algorithm, which can be shown to scale linearly with its run time. High performance computers with vastly more memory than my machine would allow testing much larger datasets. It would also be ideal to rewrite the ZDD manipulation library in a programming language with support for manual memory management to ensure no memory is being wasted and acquire a better understanding of how much of the algorithm's run time is being spent in the memory allocator. This would make it possible to more confidently assert that the methods of counting logical operations in this project are correct.
+
+Related work might look into the possibility of encoding Hamiltonian paths through a complete graph in propositional logic differently, and thereby possibly obtain a more compact ZDD to evaluate. If such an encoding is possible it would give a faster algorithm. It also might be interesting to look at the possibility of a custom compression function, different from those used by either ZDDs or BDDs for compressing the decision diagram used to represent the possible Hamiltonian paths. A compression function producing a smaller decision diagram while still being operatable on using a similar recursive algorithm to that used for BDDs and ZDDs would also likely give rise to a faster algorithm. 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % the bibliography
