@@ -12,11 +12,12 @@ def evaluate(cities, diagram):
     count = 0
     def inner(node):
         nonlocal count
-        count = count + 1
         if node.isLeaf():
+            count+=1
             return {}
 
         if node.counter in cache:
+            count+=1
             return cache[node.counter]
         
         cityNum = node.getVariable()[1]
@@ -30,8 +31,10 @@ def evaluate(cities, diagram):
         if taken:
             takenCost = min([dist(city, cities[child]) + taken[child] for child in taken])
             costs[cityNum] = takenCost
+            count+=len(taken)
         else:
             costs[cityNum] = 0
+            count+=1
 
         cache[node.counter] = costs
 
@@ -83,4 +86,4 @@ def zddTSPSolver(cities):
 
     ret, counter = evaluate(cities, current)
 
-    return (ret, counter + operationCount)
+    return (ret, counter + operationCount, counter)

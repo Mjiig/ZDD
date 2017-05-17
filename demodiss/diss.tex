@@ -7,6 +7,7 @@
 \usepackage{docmute}   % only needed to allow inclusion of proposal.tex
 \usepackage{amsmath}
 \usepackage{amssymb}
+\usepackage{listings}
 \usepackage[labelformat=simple]{subcaption}
 
 \renewcommand\thesubfigure{(\alph{subfigure})}
@@ -21,7 +22,7 @@
 
 \begin{document}
 
-\bibliographystyle{plain}
+\bibliographystyle{unsrt}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -49,12 +50,12 @@ Corpus Christi College \\[5mm]
 \chapter*{Proforma}
 
 {\large
-\begin{tabular}{ll}
+\begin{tabular}{lp{12cm}}
 Name:               & \bf Angus Hammond                       \\
 College:            & \bf Corpus Christi College                     \\
 Project Title:      & \bf Representing Solutions to the Travelling Salesman Problem Using Zero Suppressed Binary Decision Diagrams \\
 Examination:        & \bf Computer Science Tripos -- Part II, July 2017  \\
-Word Count:         & \bf ????  \\
+Word Count:         & \bf 9722  \\
 Project Originator: & Angus Hammond                    \\
 Supervisor:         & Dr Timothy Griffin                    \\ 
 \end{tabular}
@@ -85,9 +86,6 @@ unaided except as may be specified below, and that the dissertation
 does not contain material that has already been used to any substantial
 extent for a comparable purpose.
 
-\bigskip
-\leftline{Signed [signature]}
-
 \medskip
 \leftline{Date [date]}
 
@@ -101,24 +99,23 @@ extent for a comparable purpose.
 \pagestyle{headings}
 
 \chapter{Introduction}
-\section{Project Outline}
-This project seeks to demonstrate an equivalence between two different algorithms for solving the Travelling Salesman Problem, an obvious dynamic programming solution, and a solution based on techniques from logic theory that represents all Hamiltonian paths of a graph and enumerates them in a structured way. The second algorithm represents Hamiltonian paths of a graph as a constrained set of propositional variables and stores the set of satisfying assignments using a data structure called a Zero-suppressed Binary Decision Diagram (ZDD). This data structure is a variant of the better known Binary Decision Diagram (BDD). The theoretical basis for believing this equivalence exists, an explanation of the origins and working of ZDDs and descriptions of both of the algorithms are included in the Preparation chapter.
+This project seeks to demonstrate an equivalence between two different algorithms for exactly solving the Travelling Salesman Problem, an obvious dynamic programming solution, and a solution based on techniques from logic theory that represents all Hamiltonian paths of a graph and enumerates them in a structured way. The second algorithm represents Hamiltonian paths of a graph as a constrained set of propositional variables and stores the set of satisfying assignments using a data structure called a Zero-suppressed Binary Decision Diagram (ZDD)\cite{minatoZDDhist}. This data structure is a variant of the better known Binary Decision Diagram (BDD). I expect these algorithms to be equivalent because the Dynamic Programming algorithm iterates over all subsets of the set of cities, evaluating each subset using the evaluation of subsets one smaller in size, and subgraphs of the ZDD built correspond to subsets in a similar way, and encode the concept of evaluating subsets using smaller subsets into the parent-child relationship of the ZDD. My justification for believing this equivalence is further explained in the Preparation chapter, along with an explanation of the origins and working of ZDDs and detailed descriptions of both of the algorithms. I hope to provide evidence for the existence of this equivalence by demonstrating experimentally that the two algorithms have the same complexity. 
 
 The majority of the code I have written as part of this project is a library in Python for building and manipulating ZDDs efficiently, including support for producing a new ZDD from a previously built one using several standard propositional operations (for example negation, conjunction, disjunction and implication). In addition I have implemented both of the algorithms being reviewed, along with a third simpler algorithm for the Travelling Salesman Problem to help verify the correctness of both implementations. In order to test all of the implementations I have written two procedures to generate instances of the Travelling Salesman Problem, one of which produces problem instances with analytically verifiable solutions, to further aid verification of the correctness of all the algorithms, with the other producing more general problem instances in order to demonstrate the generality of all the algorithms. How each of these components is implemented is described in more detail in the Implementation chapter.
 
-In order to experimentally demonstrate the equivalence of the two algorithms I have run them on a large number of automatically generated instances of the Travelling Salesman Problem and measured both the average time and average number of logical operations taken by the two algorithms to produce a solution, as a function of the number of cities in the problem. In both cases the function is expected to have the form $\Theta(2^nn^2)$.
+In order to experimentally demonstrate the equivalence of the two algorithms I have run them on a large number of automatically generated instances of the Travelling Salesman Problem and measured both the average time and average number of logical operations taken by the two algorithms to produce a solution, as a function of the number of cities in the problem. By analysing the collected data I have shown that for the sizes of problem on which it is tractable to run these algorithms, the complexity of both algorithms appears to be $\mathcal{O}(n^22^n)$ as predicted, thereby providing stronger evidence for the existence of the equivalence I originally hypothesised existed. Details of this analysis are given in the Evaluation chapter.
 
 \chapter{Preparation}
 
 \section{The Travelling Salesman Problem}
-The Travelling Salesman Problem exists as both a function problem and a decision problem. In this project I have focused on the function problem, but it is trivial to construct a program solving the decision problem given a program solving the function problem. The problem is to find the lowest cost path that visits all of a set of cities. More formally, given a set of cities $C$ and a cost function $f: C\to\mathbb{R}$ find the minimum possible value of $\sum_{i=1}^{|C|-1}f(x_i,x_{i+1})$ where each $x_i$ has been assigned a distinct value from $C$.
+The Travelling Salesman Problem exists as both a function problem and a decision problem. In this project I have focused on the function problem, but it is trivial to construct a program solving the decision problem given a program solving the function problem. The problem is to find the lowest cost path that visits all of a set of cities. More formally, given a set of cities $C$ and a cost function $f: C\times C\to\mathbb{R}$ find the minimum possible value of $\sum_{i=1}^{|C|-1}f(x_i,x_{i+1})$ where each $x_i$ has been assigned a distinct value from $C$.
 
-The related decision problem takes a target distance as well as a set of cities and a cost function, and is only required to evaluate whether there is a path with total cost less than the given target distance. This form of the problem is known to be NP-Complete.
+The related decision problem takes a target distance as well as a set of cities and a cost function, and is only required to evaluate whether there is a path with total cost less than the given target distance. This form of the problem is known to be NP-Complete\cite{garyComplexity}.
 
 Variants of the problem exist, for example requiring that the path start and finish in the same city, not guaranteeing that the the cost function be total (i.e.\ prohibiting certain cities from being visited consecutively) or guaranteeing that the cost function will only take integer values. Most such variant are easy to reduce to an instance of the described function problem.
 
 \section{Solving The Travelling Salesman Problem with Dynamic Programming} \label{dynamicprogramming}
-An entirely naive brute force approach to the Travelling Salesman Problem takes $\Theta(n!)$ time to run. This can be improved on significantly with dynamic programming. Let the $C$ be the set of cities and $f$ be the cost function. Define $g(S, c)$, where $S\subseteq C$ and $c\in S$ to be the lowest possible cost of a path that starts in $c$ and visits all the cities in $S$. Computing $g({c}, c)$ for all $c\in C$ is trivial, since paths containing only a single city have a cost of zero. Then for all other values of $S\subseteq C$, compute $g(S,c)$ as 
+An entirely naive brute force approach to the Travelling Salesman Problem takes $\Theta(n!)$ time to run. This can be improved on significantly with dynamic programming\cite{advancedalgos}. Let the $C$ be the set of cities and $f$ be the cost function. Define $g(S, c)$, where $S\subseteq C$ and $c\in S$ to be the lowest possible cost of a path that starts in $c$ and visits all the cities in $S$. Computing $g({c}, c)$ for all $c\in C$ is trivial, since paths containing only a single city have a cost of zero. Then for all other values of $S\subseteq C$, compute $g(S,c)$ as 
 
 $$
 g(S,c)=\min_{c'\in S\setminus\{c\}}(g(S\setminus\{c\},c') + f(c,c'))
@@ -150,12 +147,11 @@ Since all permutations of the nodes are Hamiltonian paths of a complete graph, t
 
 The simplest data structure in the family of decision diagrams is a binary decision tree, which represents propositional sentences as a rooted tree in which internal nodes are labelled with propositional letters and leaves are labelled with $0$ or $1$. Every node at the same level of the tree is labelled with the same propositional letter, so that all paths from the root of the tree to a leaf pass through exactly one node labelled with each propositional letter, and every such path passes through nodes labelled with the propositional letters in the same order. Each internal node has exactly two children, connected to it by arcs labelled $T$ and $F$. A path from the root to a leaf of the tree corresponds to an assignment, where a propositional letter is asserted in the corresponding assignment if and only if the path follows the arc labelled $T$ out of a node labelled with the propositional letter (and therefore not asserted if and only if the path follows the arc labelled $F$ out of a node labelled with it). Since leaf nodes obviously correspond to paths in a rooted tree, assignments to the propositional letters also correspond to leaf nodes of the tree. Therefore a tree can be used to represent a propositional sentence by labelling a leaf node $1$ if the assignment to the propositional letters is corresponds to satisfies the propositional constraints, and label a leaf node $0$ otherwise.
 
-Binary decision trees give a canonical representation of propositional sentences, in that two propositional sentences are represented by the same binary decision tree if and only if they have the exact same set of satisfying assignments. An example of a a binary decision tree is shown in Figure \ref{decisiontree} which represents the propositional sentence, 
+Binary decision trees give a canonical representation of propositional sentences\cite{logicandproof}, in that two propositional sentences are represented by the same binary decision tree if and only if they have the exact same set of satisfying assignments. An example of a a binary decision tree is shown in Figure \ref{decisiontree} which represents the propositional sentence, 
 
 $$
 (p\wedge\neg q\wedge\neg r) \vee (\neg p\wedge q\wedge r) \vee (\neg p\wedge\neg q\wedge\neg r)
 $$
-
 shown in full disjunctive normal form as each conjunctive clause corresponds to a path from the root of the tree to a leaf labelled $1$, called a $1$-path. In the shown diagram, arcs labelled $T$ are represented by solid lines, and arcs labelled $F$ are represented by dashed lines, which is a standard notation that I will use for all types of decision diagram.
 
 \begin{figure}[tbh]
@@ -206,7 +202,7 @@ However the shown decision diagram is still not maximally efficient, since every
 \end{figure}
 
 \section{Zero-Suppressed Binary Decision Diagrams}
-Zero-Suppressed Binary Decision Diagrams (ZDDs) are binary decision diagrams that have been compressed using an alternative strategy. Nodes are omitted, and replaced by the node on their $F$ arc, if their $T$ arc points to a leaf node labelled $0$. This is intended to minimise the size of the decision diagram that needs to be stored particularly when the propositional sentence being represented is sparse, where "sparse" means that the propositional sentence has few satisfying assignments, and those satisfying assignments have few asserted variables. A schematic representation of this compression strategy is shown in Figure \ref{zddcompression}. If the diagram shown in Figure \ref{decisiondiagram} is instead compressed using this strategy, the resulting diagram is the one shown in Figure \ref{zdd}. Storing this diagram in memory requires three fewer nodes than the uncompressed decision diagram and two fewer than the BDD compression strategy. 
+Zero-Suppressed Binary Decision Diagrams (ZDDs) are binary decision diagrams that have been compressed using an alternative strategy. Nodes are omitted, and replaced by the node on their $F$ arc, if their $T$ arc points to a leaf node labelled $0$. This is intended to minimise the size of the decision diagram that needs to be stored particularly when the propositional sentence being represented is sparse, where \textit{sparse} means that the propositional sentence has few satisfying assignments, and those satisfying assignments have few asserted variables\cite{stanfordZDD}\cite{taocp}. A schematic representation of this compression strategy is shown in Figure \ref{zddcompression}. If the diagram shown in Figure \ref{decisiondiagram} is instead compressed using this strategy, the resulting diagram is the one shown in Figure \ref{zdd}. Storing this diagram in memory requires three fewer nodes than the uncompressed decision diagram and two fewer than the BDD compression strategy. It is worth noting that intuitively reading a ZDD is much harder than intuitively reading a BDD, as many paths to the $0$ labelled leaf are made implicit. For instance Figure \ref{zdd} (unlike Figure \ref{bdd}) has no path to the leaf $0$ after following the solid arc from the node labelled $p$, but the existence of these paths is implied by the lack of nodes labelled $q$ and $r$ when following that arc.
 
 \begin{figure}[tbh]
 \centering
@@ -231,42 +227,65 @@ Zero-Suppressed Binary Decision Diagrams (ZDDs) are binary decision diagrams tha
 \begin{figure}[tbh]
 \centering
 \includegraphics{{figs/zdd.dot}.pdf}
-\caption{A ZDD produced by applying the ZDD compression strategy to the diagram shown in Figure \ref{decisiondiagram}.}
+\caption{A ZDD produced by applying the ZDD compression strategy to the diagram shown in Figure \ref{decisiondiagram}. Notice that intuitively reading this diagram is hard, as a number of paths to the leaf labelled $0$ have disappeared, but still exist implicitly and can be reconstructed by reversing the ZDD compression strategy.}
 \label{zdd}
 \end{figure}
 
+\section{History}
+ZDDs were first introduced by Minato 1993 as a variant of BDDs optimised for representing families of subsets\cite{minatoZDDintro}. Due to their efficiency on problems with small solution spaces ZDDs have since been used in algorithms designed to solve a number a NP-Complete problems such as finding cliques and independent sets in graphs\cite{morrisonIndSet} and or route placement on circuit boards\cite{coudertGraphOptimization}. They have also been seen use in counting algorithms, for example determining the number of Knight's tours possible on a standard chess board\cite{schroerKnightTour}.
+
 \section{Equivalence}
-Building a ZDD corresponding to the set of constraints mentioned in Section \ref{hamiltonianpath} and recursively computing the minimum distance path encoded by every subtree results in an algorithm for solving the travelling salesman problem that I expect to be equivalent to the dynamic programming solution described in Section \ref{dynamicprogramming}. I expect this to be true because the section of the graph below any given node corresponds to the set of possible paths for a particular set of nodes still to visit. This is the same set of values computed directly by the dynamic programming solution. The purpose of this project is to verify experimentally that both algorithms have the same run time complexity.
+Building a ZDD corresponding to the set of constraints mentioned in Section \ref{hamiltonianpath} and recursively computing the minimum distance path encoded by every subgraph results in an algorithm for solving the travelling salesman problem that I expect to be equivalent to the dynamic programming solution described in Section \ref{dynamicprogramming}. I expect this to be true because the section of the graph below any given node corresponds to the set of possible paths for a particular set of cities still to visit. By computing the minimum cost path for each possible subset of cities (one for each node of the ZDD) the ZDD based algorithm ends up computing the exact same set of intermediate values as the dynamic programming algorithm. The purpose of this project is to verify experimentally that both algorithms have the same run time complexity.
 
 \chapter{Implementation}
 
 \section{Technology Used}
 All the code written for this project, the largest part of which is my implementation of a library for manipulating ZDDs, has been written in Python. A significant benefit of python is its native support for fast dictionaries, backed by hash maps, which I have used in several places throughout the library to cache the output of operations so they are not repeatedly recomputed and to reuse previously generated graph nodes whenever possible.  The \textit{dot} language for graph representation is used to allow ZDDs to be exported in a form which can be rendered easily using standard tools provided by the Graphviz package. This was useful both for debugging issues with the library and understanding the structure of the graphs produced by various sets of constraints, so that programs operating on them could be written.
 
+\section{Dynamic Programming Solution To TSP}
+Although the mathematical description of the dynamic programming solution to the Travelling Salesman Problem was given in terms of a function computed recursively in the Preparation chapter, a more iterative approach leads to both simpler code and somewhat more efficient memory usage. Because $g(c, S)$ is computed entirely as a function of values of $g(c', S')$ where $S'$ is exactly one element smaller than $S$ we can compute all the values of $g(c, S)$ for $S$ of size $n$ given all the values of $g(c,S')$ for $S'$ of size $n-1$. This suggests it is worth computing $g(c,S)$ for $|S|=1$ initially (which is the trivial base case), then for $|S|=2$ and so on. Once $g(c,S)$ has been computed for all $|S|=n$ there is no further use for the values of $g(c,S')$ with $|S'|=n-1$ so they can be deleted in order to save memory. 
+
+Generating values this way however requires an efficient method for enumerating all the subsets of $C$ of a specified size. Fortunately there are standard algorithms for this, and Python provides a standard library method that gives a generator for subsets of a given size of a set, which allows them to be enumerated without explicitly storing a list of them. Running the algorithm above until $n=|C|$ and so $S=C$ guarantees all values of $g$ have been computed and we are able to compute the overall solution to the problem as described in the Preparation chapter.
+
 \section{Deduplication}
-Irrespective of compression strategy used, an important part of building and manipulating decision diagrams is ensuring that two distinct but identical sections of graph are not both stored as a part of the same decision diagram. In my library I have ensured this is the case by having all decision diagrams belong to a \textit{NodeSet} object which stores references to all the nodes generated for diagrams that belong to it. All nodes also have a unique identifier (assigned by the NodeSet to ensure there are no collisions within one). NodeSets are therefore able to store all nodes in a dictionary, with the key of each stored node being a tuple $(\mathit{variable}, \mathit{left}, \mathit{right})$ where $\mathit{variable}$ is the propositional letter the node is labelled with, $\mathit{left}$ is the identifier of the node reached by following the arc labelled $T$ of the referenced node and $\mathit{right}$ is the identifier of the node reached by following the arc labelled $F$ of the referenced node.
+Irrespective of compression strategy used, an important part of building and manipulating decision diagrams is ensuring that two distinct but identical sections of graph are not both stored separately as a part of the same decision diagram. In my library I have ensured this is the case by having all decision diagrams belong to a \textit{NodeSet} object which stores references to all the nodes generated for diagrams that belong to it. All nodes also have a unique identifier (assigned by the NodeSet to ensure there are no collisions within one). NodeSets are therefore able to store all nodes in a dictionary, with the key of each stored node being a tuple $(\mathit{variable}, \mathit{left}, \mathit{right})$ where $\mathit{variable}$ is the propositional letter the node is labelled with, $\mathit{left}$ is the identifier of the node reached by following the arc labelled $T$ of the referenced node and $\mathit{right}$ is the identifier of the node reached by following the arc labelled $F$ of the referenced node.
 
 At construction time of nodes, the constructor has access to both the propositional letter the node will be labelled with and pointers to both of the nodes children, so is able to look up whether the NodeSet is already aware of an identical node. If such a node already exists it is returned instead of a new node being constructed. Since all internal nodes are produced by this constructor and once created nodes are never modified this guarantees that two identical internal nodes are never created.
 
-Leaf nodes are constructed separately since they have no child nodes, and the constructors for leaf nodes only ever return a pair of constant values created when the NodeSet is constructed (similar to the singleton design pattern). Together these measures ensure that, within a NodeSet, any pair of nodes which are the root of identically structured diagrams will be the same node in memory.
+Leaf nodes are constructed separately since they have no child nodes, and the constructors for leaf nodes only ever return a pair of constant values created when the NodeSet is constructed (similar to the singleton design pattern). Together these measures ensure that, within a NodeSet, any pair of nodes which are the root of identically structured diagrams will be the same node in memory. A code extract implementing this behaviour is shown in Appendix B.
 
 \section{Constructing ZDDs}
-The process for constructing a ZDD described in the Preparation chapter, by building a complete decision tree is possible but exceptionally inefficient, since the size of the decision tree will always be exponential in the number of propositional letters. Instead, we analytically construct a number of small ZDDs for important propositional sentences and build functions to combine or modify ZDDs representing some number of propositional sentences to produce the ZDD representing some function of those propositional sentence. Many possible operations can be implemented in this way, but my library focuses on standard logical operations such as conjunction, disjunction and negation.
+The process for constructing a ZDD described in the Preparation chapter, by building a complete decision tree is possible but exceptionally inefficient, since the size of the decision tree will always be exponential in the number of propositional letters. Instead, we analytically construct a number of small ZDDs for important propositional sentences and build functions to combine or modify ZDDs representing propositional sentences to produce the ZDD representing some function of those propositional sentence. Many possible operations can be implemented in this way, but my library focuses on standard logical operations such as conjunction, disjunction and negation.
 
 \subsection{Tautology ZDD}
-The ZDD for a tautology, representing for example the propositional sentence $p\vee\neg p$, corresponds to a binary decision tree with all leaf nodes labelled $1$. Since both children of every node are the same in this tree, when this tree is reduced to a graph so that there are no repeated components only a single node for each propositional letter is left, connected linearly and ending in a leaf node labelled $1$. An example of such a ZDD in shown in Figure !!REF!!. Because there are no leaf nodes labelled $0$ in the diagram the ZDD compression strategy does not reduce the graph any further.
+The ZDD for a tautology, representing for example the propositional sentence $p\vee\neg p$, corresponds to a binary decision tree with all leaf nodes labelled $1$. Since both children of every node are the same in this tree, when this tree is reduced to a graph so that there are no repeated components only a single node for each propositional letter is left, connected linearly and ending in a leaf node labelled $1$. An example of such a ZDD in shown in Figure \ref{tautology}. Because there are no leaf nodes labelled $0$ in the diagram the ZDD compression strategy does not reduce the graph any further.
 
-TAUTOLOGY FIGURE HERE
+\begin{figure}[tbh]
+\centering
+\includegraphics{{figs/tautology.dot}.pdf}
+\caption{The ZDD representing a tautology for the set of propositional letters ${p, q, r}$.}
+\label{tautology}
+\end{figure}
 
 \subsection{Contradiction ZDD}
-The ZDD for a contradiction, representing the propositional sentence $p\wedge\neg p$, corresponds to a binary decision tree with all leaf nodes labelled $0$. Temporarily ignoring the duplication in the tree and applying the ZDD compression strategy, every internal node on the last layer has a child on its $T$ arc labelled $0$, so all of them are omitted and replaced by the node on their $F$ arc, which is also a leaf node labelled $0$. Applying this process repeatedly for every layer of the original tree will eventually result in a single leaf node labelled $0$. This ZDD is shown in Figure !!REF!!. Since this diagram clearly contains no repeated sections as there is only a single node, no deduplication needs to be carried out.
+The ZDD for a contradiction, representing the propositional sentence $p\wedge\neg p$, corresponds to a binary decision tree with all leaf nodes labelled $0$. Temporarily ignoring the duplication in the tree and applying the ZDD compression strategy, every internal node on the last layer has a child on its $T$ arc labelled $0$, so all of them are omitted and replaced by the node on their $F$ arc, which is also a leaf node labelled $0$. Applying this process repeatedly for every layer of the original tree will eventually result in a single leaf node labelled $0$. This ZDD is shown in Figure \ref{contradiction}. Since this diagram clearly contains no repeated sections as there is only a single node, no deduplication needs to be carried out.
 
-CONTRADICTION FIGURE HERE
+\begin{figure}[tbh]
+\centering
+\includegraphics{{figs/contradiction.dot}.pdf}
+\caption{The ZDD representing a contradiction for any set of propositional letters.}
+\label{contradiction}
+\end{figure}
 
 \subsection{ZDD of a single asserted variable}
-The ZDD for a propositional sentence that requires a single particular variable be asserted in all satisfying assignments, for example the propositional sentence $p$, corresponds to a binary decision tree with the leaf nodes labelled $0$ unless they are beneath a a node reached by following an arc labelled $T$ out of a node labelled with the relevant propositional letter (for example $p$). Transforming this tree into a decision diagram similarly to the example given for a tautology ZDD results in a single chain of nodes down to a node labelled $p$, out of which following the arc labelled $T$ results in a single chain down to a leaf node labelled $1$, and following the arc labelled $F$ results in a single chain of nodes down to a leaf node labelled $0$. Then applying the ZDD compression strategy in the same way as done for the contradiction ZDD, all of the nodes in the chain leading to a leaf labelled $0$ can be omitted and replaced by a single node labelled $0$. The ZDD compression strategy cannot be applied any further since the only arc pointing to a leaf node labelled $0$ is labelled $F$. An example of such a ZDD is given in Figure !!REF!!.
+The ZDD for a propositional sentence that requires a single particular variable be asserted in all satisfying assignments, for example the propositional sentence $p$, corresponds to a binary decision tree with the leaf nodes labelled $0$ unless they are beneath a a node reached by following an arc labelled $T$ out of a node labelled with the relevant propositional letter (for example $p$). Transforming this tree into a decision diagram similarly to the example given for a tautology ZDD results in a single chain of nodes down to a node labelled $p$, out of which following the arc labelled $T$ results in a single chain down to a leaf node labelled $1$, and following the arc labelled $F$ results in a single chain of nodes down to a leaf node labelled $0$. Then applying the ZDD compression strategy in the same way as done for the contradiction ZDD, all of the nodes in the chain leading to a leaf labelled $0$ can be omitted and replaced by a single node labelled $0$. The ZDD compression strategy cannot be applied any further since the only arc pointing to a leaf node labelled $0$ is labelled $F$. An example of such a ZDD is given in Figure \ref{singlevar}.
 
-SINGLE VARIABLE FIGURE HERE
+\begin{figure}[tbh]
+\centering
+\includegraphics{{figs/singlevar.dot}.pdf}
+\caption{The ZDD representing the propositional sentence $q$, for the propositional letter set ${p, q, r}$.}
+\label{singlevar}
+\end{figure}
 
 \section{ZDD Operations}
 Operations to combine and modify ZDDs are built as recursive functions on the nodes that make up the ZDDs. Because of the graph nature of ZDDs, it is possible that some function of a given node might be repeatedly recomputed while the ZDD is walked over recursively. Therefore, in order to avoid inefficiency, my library stores the output of all such functions in a cache which is checked before explicit computation of any function. For memory efficiency this cache is only stored for the duration of a single top level call to the function. Python's lexical scoping and dictionaries make this easy to implement.
@@ -326,9 +345,27 @@ and applying the ZDD compression scheme to delete nodes with $\mathit{False}$ as
 A very similar process can be applied for disjunction with slightly different base cases. However more care is needed in the case of other operations, especially those that are capable of implicitly or explicitly negating a propositional sentence.
 
 \section{Negating ZDDs}
-Similarly to conjunction, a negation function should take a ZDD $A$ representing a propositional sentence $a$ and return a ZDD $\mathit{neg}(A)$ representing $\neg a$. Unfortunately such a negation function cannot be written as simply as in the case of conjunction as disjunction because the ZDD compression strategy introduces implicit paths to leaf nodes labelled $0$ in the ZDD $A$, which must result in explicit paths to leaf nodes labelled $1$ in $\mathit{neg}(A)$. In order to handle this a implementation of the $\mathit{neg}$ function must consider what letter it expects a node at the root of a diagram to be labelled  with. If the actual label and the expected label are different, the diagram must contain some number of implicit omitted nodes, which due to the nature of the ZDD compression strategy we know would have a leaf labelled $0$ on their $T$ arc. Since a leaf labelled $0$ corresponds to a contradiction, and the negation of a contradiction is a tautology, in the negation of such a diagram it is necessary to reinsert the omitted nodes, making their $T$ child the root of a tautology in the propositional letters not already used higher in the diagram, and their $F$ child the continuation of the negation of the input diagram from the next expected propositional letter. Figure !!REF!! contains an example of a non trivial negation.
+Similarly to conjunction, a negation function should take a ZDD $A$ representing a propositional sentence $a$ and return a ZDD $\mathit{neg}(A)$ representing $\neg a$. Unfortunately such a negation function cannot be written as simply as in the case of conjunction as disjunction because the ZDD compression strategy introduces implicit paths to leaf nodes labelled $0$ in the ZDD $A$, which must result in explicit paths to leaf nodes labelled $1$ in $\mathit{neg}(A)$. In order to handle this a implementation of the $\mathit{neg}$ function must consider what letter it expects a node at the root of a diagram to be labelled  with. If the actual label and the expected label are different, the diagram must contain some number of implicit omitted nodes, which due to the nature of the ZDD compression strategy we know would have a leaf labelled $0$ on their $T$ arc. Since a leaf labelled $0$ corresponds to a contradiction, and the negation of a contradiction is a tautology, in the negation of such a diagram it is necessary to reinsert the omitted nodes, making their $T$ child the root of a tautology in the propositional letters not already used higher in the diagram, and their $F$ child the continuation of the negation of the input diagram from the next expected propositional letter. Figure \ref{negation} contains an example of a non trivial negation.
 
-NEGATION FIGURE HERE
+\begin{figure}[tbh]
+\centering
+
+\begin{subfigure}[b]{0.49\textwidth}
+\centering
+\includegraphics{{figs/contradiction.dot}.pdf}
+\caption{}
+\label{negation1}
+\end{subfigure}
+\begin{subfigure}[b]{0.49\textwidth}
+\centering
+\includegraphics{{figs/tautology.dot}.pdf}
+\caption{}
+\label{negation2}
+\end{subfigure}
+
+\caption{An example of a non trivial ZDD negation. \subref{negation1} represents a contradiction so its negation is a tautology as shown in \subref{negation2}, which illustrates the additional care that must be taken when negating ZDDs due to the additional nodes that can be created.}
+\label{negation}
+\end{figure}
 
 \section{Implication between ZDDs}
 The final operator I built for working on ZDDs is an implication operator, which takes two ZDDs $A$ and $B$ representing propositional sentences $a$ and $b$ respectively and produces a ZDD $\mathit{imp}(A, B)$ which represents the propositional sentence $a\implies b$. It would be possible to implement this just as 
@@ -338,11 +375,6 @@ $$
 $$
 
 since it is a standard identity in propositional logic that $a\implies b$ is exactly equivalent to $\neg a\vee b$ however since the running time of all these operations is related to the size of the input ZDDs, and because it is possible for $\mathit{neg}(A)$ to be a much larger ZDD than $A$ it is desireable to implement it more directly. However it can be implemented very similarly to conjunction and disjunction with additional care taken over cases were the first argument can be false, as with negation.
-
-\section{Dynamic Programming Solution To TSP}
-Although the mathematical description of the dynamic programming solution to the Travelling Salesman Problem was given in terms of a function computed recursively in the Preparation chapter, a more iterative approach leads to both simpler code and somewhat more efficient memory usage. Because $g(c, S)$ is computed entirely as a function of values of $g(c', S')$ where $S'$ is exactly one element smaller than $S$ we can compute all the values of $g(c, S)$ for $S$ of size $n$ given all the values of $g(c,S')$ for $S'$ of size $n-1$. This suggests it is worth computing $g(c,S)$ for $|S|=1$ initially (which is the trivial base case), then for $|S|=2$ and so on. Once $g(c,S)$ has been computed for all $|S|=n$ there is no further use for the values of $g(c,S')$ with $|S'|=n-1$ so they can be deleted in order to save memory. 
-
-Generating values this way however requires an efficient method for enumerating all the subsets of $C$ of a specified size. Fortunately there are standard algorithms for this, and Python provides a standard library method that gives a generator for subsets of a given size of a set, which allows them to be enumerated without explicitly storing a list of them. Running the algorithm above until $n=|C|$ and so $|S|=|C|$, so $S=C$ guarantees all values of $g$ have been computed and we are able to compute the overall solution to the problem as described in the Preparation chapter.
 
 \section{Efficiently Building Large ZDDs}
 In order to build a ZDD that encodes the possible Hamiltonian paths through a complete graph, I use the ZDD library I created to encode the set of constraints outlined in Section \ref{hamiltonianpath}. Since the library allows any python object that can be used as a dictionary key to be used as a propositional letter identifier the propositional variable $\mathit{visited}_{c,i}$ is just represented by the python tuple $(i, j)$ where $j$ is the index of $c$ in a list of all cities. Representing cities using their index in a list of cities instead of directly using a data structure representing the city in the propositional letter identifiers saves memory, since the data structure representing a city will generally contain at least two numbers representing a position and a propositional letter identifier is stored on every node so slight decreases in their size can drastically reduce total memory usage. 
@@ -386,7 +418,7 @@ In python weak dictionaries could be built using the weak reference library that
 
 \chapter{Evaluation}
 \section{Instance Generation}
-In order to test solvers for the Travelling Salesman problem I need to be able to generate instances of the problem to run the solvers on. Although the Travelling Salesman problem in general handles shortest path in any complete graph, a reasonable set of problem instances can be produced more simply by assigning each node a location in two dimensional Euclidean space. The cost of the arc between a pair of nodes is then the Euclidean distance between them. This significantly reduces the complexity of building a problem instance since only $2n$ coordinates need to be chosen if there are $n$ cities, rather than $n(n+1)/2$ independent arc costs. Two different problem instance generators were used, the first generated cities spaced uniformly around a unit circle centered on the origin (so for four cities, they would be placed at $(0,1)$, $(1,0)$, $(0, -1)$ and $(-1, 0)$) which means that the correct minimum path length can easily be determined analytically by hand. Since the minimum path is always achieved by moving around the circle in either direction, never skipping a city, its length will be
+In order to test solvers for the Travelling Salesman problem I need to be able to generate instances of the problem to run the solvers on. Although the Travelling Salesman problem in general is to find the shortest Hamiltonian path in any complete graph, a reasonable set of problem instances can be produced more simply by assigning each node a location in two dimensional Euclidean space\cite{advancedalgos}. The cost of the arc between a pair of nodes is then the Euclidean distance between them. This significantly reduces the complexity of building a problem instance since only $2n$ coordinates need to be chosen if there are $n$ cities, rather than $n(n+1)/2$ independent arc costs. Two different problem instance generators were used, the first generated cities spaced uniformly around a unit circle centered on the origin (so for four cities, they would be placed at $(0,1)$, $(1,0)$, $(0, -1)$ and $(-1, 0)$) which means that the correct minimum path length can easily be determined analytically by hand. Since the minimum path is always achieved by moving around the circle in either direction, never skipping a city, its length will be
 $$
 (n-1)2\sin(\pi/n)
 $$
@@ -395,7 +427,7 @@ which tends towards $2\pi$ in the limit as $n$ tends to infinity. By running bot
 The second instance generator placed cities randomly in the unit square with corners $(0,0)$, $(1,0)$, $(1,1)$ and $(0,1)$.  These problem instances were used in the final tests of the solvers performance and for validation that both of the solvers produced the same answers in less trivial problem instances.
 
 \section{Validation}
-In addition to validating both the solvers being inspected on problem instances with known analytical solutions, further validation was done by producing another solver, which uses an extremely simple, but slow, brute force algorithm. This algorithm works by independently computing the cost for every possible path through the cities. Since there is one path per possible permutation of the list of cities, this algorithm considers $\mathcal{O}(n!)$ possible paths, each of which takes $\mathcal{O}(n)$ time to evaluate for a total run time of $\mathcal{O}(n(n!))$. Because of its factorial run time it is only possible to run this algorithm on problem instances of very small size. However it is extremely simple to implement in Python due to the languages built in support for generating permutations, so can reliably be implemented correctly. By comparing the output of this algorithm to that of the other solvers I am investigating on a large number of random problem instances and confirming all three algorithms give the same answer I can be confident that all three algorithms are correctly solving the Travelling Salesman Problem.
+In addition to validating both the solvers being inspected on problem instances with known analytical solutions, further validation was done by producing another solver, which uses an extremely simple, but slow, brute force algorithm. This algorithm works by independently computing the cost for every possible path through the cities. Since there is one path per possible permutation of the list of cities, this algorithm considers $\mathcal{O}(n!)$ possible paths, each of which takes $\mathcal{O}(n)$ time to evaluate for a total run time of $\mathcal{O}(n(n!))$. Because of its factorial run time it is only possible to run this algorithm on problem instances of very small size. However it is extremely simple to implement in Python due to the language's built-in support for generating permutations, so can reliably be implemented correctly. By comparing the output of this algorithm to that of the other solvers I am investigating on a large number of random problem instances and confirming all three algorithms give the same answer I can be confident that all three algorithms are correctly solving the Travelling Salesman Problem.
 
 \section{Metrics}
 In order to measure the complexity of both solvers, I measured the amount of work done by the solvers according to two metrics, real time taken and number of logical operations performed. Measuring logical operations ensures the results are not directly affected by the performance characteristics of my computer especially with relation to caching behaviour or irregular CPU load due to system processes. However since measurement of logical operations can easily be miscalculated if not all the operations being counted actually have a constant cost. It is therefore advantageous to use both and ensure they given corresponding results.
@@ -410,35 +442,35 @@ In order to collect both metrics I wrote a testing script that generates random 
 Because ZDDs are so memory hungry, there is a risk that measuring the performance of an algorithm that uses them heavily will be highly influenced by the performance of the underlying memory allocator. Because Python is a garbage collected language I have no control over the allocation strategy, so want to ensure that all test runs start with a similar allocator state to avoid this overly affecting the results. Experimentally I observed that Python's garbage collector often does not release unused memory back to the operating system even after the objects being stored in it have been deleted. In order to prevent this having an effect on the observed results, either due to lack of memory slowing down ZDD algorithms or Python's allocator working faster when already having allocated memory from the operating system, I made use of the standard library \textit{multiprocessing} module to force every run of the solvers to take place in a different Python process. By killing the Python processes that were hosting finished test runs of solvers I can guarantee that all memory used by a solver is released back to the operating system at the end of a test run, and by starting every test run in a fresh Python process I can ensure that every test run starts with the same allocator state. This ensures that all test runs of both solvers take place in a similar environment to avoid unnecessary bias in the results.
 
 \section{Results}
-Results were collected from problem instances from size 1 to 15, which is the largest size viable for the ZDD based solver due to the amount of memory available on my computer. For each size of input, the solvers were tested on 30 random problem instances, generated using the random instance generator. For the two solvers tested, the mean and variance of the times measured are shown in Table \ref{timeResults}, and the number of logical operations measured for each algorithm is shown in Table \ref{operationsResults}. As expected the variance in the number of logical operations was $0$ in all cases so is not shown.
+Results were collected from problem instances from size 1 to 15, which is the largest size viable for the ZDD based solver due to the amount of memory available on my computer (2 gigabytes). For each size of input, the solvers were tested on 30 random problem instances, generated using the random instance generator. For the two solvers tested, the mean and standard deviation of the mean measured are shown in Table \ref{timeResults}, and the number of logical operations measured for each algorithm is shown in Table \ref{operationsResults}. The standard deviation of the mean is computed as the square root of the variance divided by the square root of the number of test cases. As expected the variance in the number of logical operations was $0$ in all cases so is not shown.
 
 \begin{table}[h]
 \centering
 \begin{tabular}[h]{r | c c | c c}
  & \multicolumn{2}{|c|}{ZDD} & \multicolumn{2}{|c}{Dynamic Programming} \\
-\parbox[b]{1.5cm}{Number of cities} & Time/s & Variance/s & Time/s & Variance/s \\
+\parbox[b]{1.5cm}{Number of cities} & Time/s & Standard Deviation/s & Time/s & Standard Deviation/s \\
 \hline
-1  & $8.29\times 10^{-4}$ & $1.1\times 10^{-8}$ & $5.85\times 10^{-5}$ & $1.1\times 10^{-10}$ \\
-2  & $6.05\times 10^{-3}$ & $1.2\times 10^{-6}$ & $1.62\times 10^{-4}$ & $1.2\times 10^{-9}$ \\
-3  & $2.79\times 10^{-2}$ & $4.5\times 10^{-6}$ & $2.42\times 10^{-4}$ & $1.9\times 10^{-9}$ \\
-4  & $1.06\times 10^{-1}$ & $3.4\times 10^{-6}$ & $4.66\times 10^{-4}$ & $8.2\times 10^{-9}$ \\
-5  & $3.53\times 10^{-1}$ & $6.4\times 10^{-5}$ & $1.07\times 10^{-3}$ & $5.9\times 10^{-8}$ \\
-6  & $9.94\times 10^{-1}$ & $7.1\times 10^{-3}$ & $2.92\times 10^{-3}$ & $2.4\times 10^{-7}$ \\
-7  & $2.31\times 10^{0}$ & $1.8\times 10^{-4}$ & $6.24\times 10^{-3}$ & $1.2\times 10^{-6}$ \\
-8  & $5.01\times 10^{0}$ & $1.3\times 10^{-3}$ & $1.36\times 10^{-2}$ & $4.7\times 10^{-6}$ \\
-9  & $9.95\times 10^{0}$ & $4.8\times 10^{-3}$ & $2.87\times 10^{-2}$ & $3.8\times 10^{-6}$ \\
-10 & $1.85\times 10^{1}$ & $4.4\times 10^{-3}$ & $6.49\times 10^{-2}$ & $5.1\times 10^{-6}$ \\
-11 & $3.32\times 10^{1}$ & $1.1\times 10^{-2}$ & $1.54\times 10^{-1}$ & $3.8\times 10^{-6}$ \\
-12 & $5.67\times 10^{1}$ & $1.4\times 10^{-2}$ & $3.68\times 10^{-1}$ & $2.2\times 10^{-5}$ \\
-13 & $9.50\times 10^{1}$ & $4.5\times 10^{-2}$ & $8.61\times 10^{-1}$ & $4.3\times 10^{-5}$ \\
-14 & $1.58\times 10^{2}$ & $7.3\times 10^{-2}$ & $2.00\times 10^{0}$ & $3.5\times 10^{-5}$ \\
-15 & $2.63\times 10^{2}$ & $2.3\times 10^{-1}$ & $4.64\times 10^{0}$ & $1.6\times 10^{-3}$
+ $ 1$ &  $8.28\times 10^{-4}$ &  $1.8\times 10^{-5}$ &  $5.85\times 10^{-5}$ &  $1.9\times 10^{-6}$ \\
+ $ 2$ &  $6.04\times 10^{-3}$ &  $2.0\times 10^{-4}$ &  $1.62\times 10^{-4}$ &  $6.4\times 10^{-6}$ \\
+ $ 3$ &  $2.79\times 10^{-2}$ &  $3.8\times 10^{-4}$ &  $2.42\times 10^{-4}$ &  $7.9\times 10^{-6}$ \\
+ $ 4$ &  $1.06\times 10^{-1}$ &  $3.3\times 10^{-4}$ &  $4.66\times 10^{-4}$ &  $1.6\times 10^{-5}$ \\
+ $ 5$ &  $3.52\times 10^{-1}$ &  $1.4\times 10^{-3}$ &  $1.07\times 10^{-3}$ &  $4.4\times 10^{-5}$ \\
+ $ 6$ &  $9.94\times 10^{-1}$ &  $1.5\times 10^{-2}$ &  $2.92\times 10^{-3}$ &  $8.9\times 10^{-5}$ \\
+ $ 7$ &  $2.31\times 10^{ 0}$ &  $2.4\times 10^{-3}$ &  $6.24\times 10^{-3}$ &  $2.0\times 10^{-4}$ \\
+ $ 8$ &  $5.00\times 10^{ 0}$ &  $6.6\times 10^{-3}$ &  $1.36\times 10^{-2}$ &  $3.9\times 10^{-4}$ \\
+ $ 9$ &  $9.94\times 10^{ 0}$ &  $1.2\times 10^{-2}$ &  $2.87\times 10^{-2}$ &  $3.5\times 10^{-4}$ \\
+ $10$ &  $1.85\times 10^{ 1}$ &  $1.2\times 10^{-2}$ &  $6.48\times 10^{-2}$ &  $4.1\times 10^{-4}$ \\
+ $11$ &  $3.31\times 10^{ 1}$ &  $1.9\times 10^{-2}$ &  $1.54\times 10^{-1}$ &  $3.5\times 10^{-4}$ \\
+ $12$ &  $5.66\times 10^{ 1}$ &  $2.1\times 10^{-2}$ &  $3.67\times 10^{-1}$ &  $8.6\times 10^{-4}$ \\
+ $13$ &  $9.49\times 10^{ 1}$ &  $3.8\times 10^{-2}$ &  $8.61\times 10^{-1}$ &  $1.1\times 10^{-3}$ \\
+ $14$ &  $1.57\times 10^{ 2}$ &  $4.9\times 10^{-2}$ &  $2.00\times 10^{ 0}$ &  $1.0\times 10^{-3}$ \\
+ $15$ &  $2.63\times 10^{ 2}$ &  $8.7\times 10^{-2}$ &  $4.64\times 10^{ 0}$ &  $7.3\times 10^{-3}$
 \end{tabular}
 \caption{}
 \label{timeResults}
 \end{table}
 
-Since the variances in \ref{timeResults} are three orders of magnitude less than the means in the vast majority of cases and always at least two orders of magnitude less, it is reasonable to treat the means as representative values the expected time for the solvers to process a problem instance of a given size.
+Since the standard deviations in \ref{timeResults} all at least an order of magnitude less than the corresponding mean, it is reasonable to treat the means as representative values the expected time for the solvers to process a problem instance of a given size.
 
 \begin{table}[h]
 \centering
@@ -481,7 +513,7 @@ Graphs plotting the amount of time taken by both solvers on average against the 
 \label{dyntime}
 \end{figure}
 
-First, it is worthwhile to check that the two metrics of computation done that I've measured are in fact similar. Becuase logical operations are counted differently for the dynamic programming and ZDD based solvers this needs to be done separately for both. Figure \ref{timeoperations} shows the relationship between time taken and number of operations performed for both solvers. It is immediately obvious that these relationships are not linear as desired, and unexpectedly show that more operations are being carried out per second when the solvers process larger instances than when they process smaller ones. This surprised me, as I thought the most likely error in operation counting would be some operation that was actually linear in number of cities (such as finding the minimum of a list of costs) being counted as a constant cost. I believe the opposite trend has arisen not due to errors in the operation counting but due to either the Python or Linux memory allocators performing better (per allocation) on the solvers when they have run for longer. This might occur because the allocators are able to better predict the code's behaviour and so optimise for it as it runs longer, or because the Python allocator ends up holding much more system memory in the longer test runs and so can work faster by recycling recently garbage collected objects instead of performing fresh allocations more often. Because of this, I have used operation count for all other analysis in this section because I expect it to better approximate the amount of computation being done in the solvers themselves, or equivalently the amount of computation that would have to be done if a similar set of solvers were to be written in a language with manual memory management and carefully optimised to handle allocation efficiently.
+First, it is worthwhile to check that the two metrics of computation done that I've measured are in fact similar. Because logical operations are counted differently for the dynamic programming and ZDD based solvers this needs to be done separately for both. Figure \ref{timeoperations} shows the relationship between time taken and number of operations performed for both solvers. It is immediately obvious that the relationship for the ZDD solver is not linear as desired, and unexpectedly show that more operations are being carried out per second when the solver processes larger instances than when it processes smaller ones. This surprised me, as I thought the most likely error in operation counting would be some operation that was actually linear in number of cities (such as finding the minimum of a list of costs) being counted as a constant cost. I believe the opposite trend has arisen not due to errors in the operation counting but due to either the Python or Linux memory allocators performing better (per allocation) for the solver when is has run for longer. This might occur because the allocators are able to better predict the code's behaviour and so optimise for it as it runs longer, or because the Python allocator ends up holding much more system memory in the longer test runs and so can work faster by recycling recently garbage collected objects instead of performing fresh allocations more often. This has a significant effect because the ZDD solver's performance is largely bound by the amount of allocation it has to do. Because of this, I have used operation count for all other analysis in this section because I expect it to better approximate the amount of computation being done in the solvers themselves, or equivalently the amount of computation that would have to be done if a similar set of solvers were to be written in a language with manual memory management and carefully optimised to handle allocation efficiently.
 
 \begin{figure}[tbh]
 \centering
@@ -501,7 +533,7 @@ First, it is worthwhile to check that the two metrics of computation done that I
 \label{timeoperations}
 \end{figure}
 
-In order to compare the measured complexity with the expected complexity of $\mathcal{O}(n^22^n)$ I have plotted for each size of problem instance evaluated the number of operations performed in actual test runs against the value of the expected complexity. If my hypothesis regarding the expected complexity is correct a linear relationship should be seen. Figure \ref{dynoperations} does appear to be linear which initially implies that the hypothesis does hold for the dynamic programming solver, however it is harder to see if Figure \ref{zddoperations} is linear due to the high density of points in the bottom left corner which appear to curve slightly. The curvature is convex, which would suggest that if the ZDD solver does not have the expected complexity then it is actually faster than expected. I believe this may appear to be the case because the cost of the algorithm is dominated by asympotically fast but practically expensive operations in the case of small $n$, which mean the solvers complexity appears to grow slower than the expected function but is in fact just approaching it from above. We can check the complexity of the ZDD solver is not lower than expected by plotting the number of operations performed by a component of it which does have the expected complexity, a graph of which is shown in Figure \ref{zddmodoperations}. The linearity of \ref{zddmodoperations} strongly suggests that the convex curvature of \ref{zddoperations} is only a property of small $n$.
+In order to compare the measured complexity with the expected complexity of $\mathcal{O}(n^22^n)$ I have plotted for each size of problem instance evaluated the number of operations performed in actual test runs against the value of the expected complexity. If my hypothesis regarding the expected complexity is correct a linear relationship should be seen. Figure \ref{dynoperations} does appear to be linear which initially implies that the hypothesis does hold for the dynamic programming solver, however it is harder to see if Figure \ref{zddoperations} is linear due to the high density of points in the bottom left corner which appear to curve slightly. The curvature is convex, which would suggest that if the ZDD solver does not have the expected complexity then it is actually faster than expected. I believe this may appear to be the case because the cost of the algorithm is dominated by asymptotically fast but practically expensive operations in the case of small $n$, which mean the solvers complexity appears to grow slower than the expected function but is in fact just approaching it from above. We can check the complexity of the ZDD solver is not lower than expected by plotting the number of operations performed by a component of it which does have the expected complexity, a graph of which is shown in Figure \ref{zddmodoperations}. The linearity of \ref{zddmodoperations} strongly suggests that the convex curvature of \ref{zddoperations} is only a property of small $n$.
 
 \begin{figure}[ht]
 \centering
@@ -520,11 +552,11 @@ In order to compare the measured complexity with the expected complexity of $\ma
 \begin{figure}[ht]
 \centering
 \includegraphics[width=0.7\textwidth]{graphs/y-zddMO.pdf}
-\caption{A plot of the number of operations taken by the ZDD solver in its final stage (which is expected to have the same complexity as the overal algorithm) against the expected complexity for each instance size.}
+\caption{A plot of the number of operations taken by the ZDD solver in its final stage (which is expected to have the same complexity as the overall algorithm) against the expected complexity for each instance size.}
 \label{zddmodoperations}
 \end{figure}
 
-In order to more concretely and analytically confirm that the graphs in Figures \ref{dynoperations} and \ref{zddmodoperations} are linear, I have produced log-log plots of the same data. This spaces out the densely packed points for easier inspection, and means I can check the original graph for linearity by measuring a gradient of one in the log-log plot. The dynamic programming solver log-log plot in Figure \ref{logdynoperations} is clearly linear, and a line of best fit computed using Matlab and plotted on the graph has a gradient of $0.97$, indicating a linear relationship between the two quantities. The log-log plot for the full operation count for the ZDD based solver shown in Figure \ref{logzddoperations} is significantly less linear, and again appears to be convex suggesting this algorithm's run time is dominated by a slower growing function for small $n$. The gradient of best fit computed at $0.83$ by Matlab further indicates that the data does not precisely match the expected shape.
+In order to more concretely and analytically confirm that the graphs in Figures \ref{dynoperations} and \ref{zddmodoperations} are linear, I have produced log-log plots of the same data. This spaces out the densely packed points for easier inspection, and means I can check the original graph for linearity by measuring a gradient of $1$ in the log-log plot. The dynamic programming solver log-log plot in Figure \ref{logdynoperations} is clearly linear, and a line of best fit computed using Matlab and plotted on the graph has a gradient of $0.97$, indicating a linear relationship between the the number of operations performed by the dynamic programming solver and $n^22^n$. The log-log plot for the full operation count for the ZDD based solver shown in Figure \ref{logzddoperations} is significantly less linear, and again appears to be convex suggesting this algorithm's run time is dominated by a slower growing function for small $n$. The gradient of best fit computed at $0.83$ by Matlab further indicates that the data does not precisely match the expected shape.
 
 However, a log-log plot of the modified operation count, as shown in Figure \ref{logzddmodoperations} is close to perfectly linear. The best fit line shown was computed ignoring the first two points since the graph does not appear to converge to a straight line immediately, but the fit line has a gradient of $0.97$ which strongly suggests a linear relationship between the modified operation count and the expected complexity.
 
@@ -538,28 +570,30 @@ However, a log-log plot of the modified operation count, as shown in Figure \ref
 \begin{figure}[ht]
 \centering
 \includegraphics[width=0.7\textwidth]{graphs/logy-logzddO.pdf}
-\caption{A log-log plot of the number of operations taken by the ZDD solver against the expected complexity for each instance size. The line drwan is a line of best fith with gradient $0.83$.}
+\caption{A log-log plot of the number of operations taken by the ZDD solver against the expected complexity for each instance size. The line drawn is a line of best fit with gradient $0.83$.}
 \label{logzddoperations}
 \end{figure}
 
 \begin{figure}[ht]
 \centering
 \includegraphics[width=0.7\textwidth]{graphs/logy-logzddMO.pdf}
-\caption{A log-log plot of the number of operations taken by the ZDD solver in its final stage (which is expected to have the same complexity as the overal algorithm) against the expected complexity for each instance size. The line drawn is a line of best fit, computed exlcluding the first two data points, with gradient $0.97$.}
+\caption{A log-log plot of the number of operations taken by the ZDD solver in its final stage (which is expected to have the same complexity as the overall algorithm) against the expected complexity for each instance size. The line drawn is a line of best fit, computed excluding the first two data points, with gradient $0.97$.}
 \label{logzddmodoperations}
 \end{figure}
 
 \section{Interpretation}
 The linear relationship between the operation count and the expected complexity for the dynamic programming solver is clearly shown by the measured results, so my experimentation has demonstrated that the dynamic programming algorithm has the complexity $\mathcal{O}(n^22^n)$.
 
-The collected data seems to show that the ZDD based solver's complexity actually grows a little slower than expected. However by considering a subcomponent of the algorithm and measuring the number of operations it is performing I have collected data that demonstrates that at least part of the ZDD solver has the complexity $\mathcal{O}(n^22^n)$. Since complexity theory deals with the asymptotic case, if any part of the algorithm's run time grows as $\mathcal{O}(n^22^n)$, the run time for the entire algorithm must grow as at least $\mathcal{O}(n^22^n)$. I believe the combination of these observations, that the algorithm initially appears to grow in complexity slowly, but contains at least one component that grows as expected, suggests a complexity of the form $(cg(c) + dn^22^n)$ where $g(n)\in o(n^22^n)$ but $c \gg d$ so the run time initially appears to grow slower than $\mathcal{O}(n^22^n)$ even though that is the correct asymptotic complexity. 
+The collected data seems to show that the ZDD based solver's complexity actually grows a little slower than expected. However by considering a subcomponent of the algorithm and measuring the number of operations it is performing I have collected data that demonstrates that at least part of the ZDD solver has the complexity $\mathcal{O}(n^22^n)$. Since complexity theory deals with the asymptotic case, if any part of the algorithm's run time grows as $\mathcal{O}(n^22^n)$, the run time for the entire algorithm must grow as at least $\mathcal{O}(n^22^n)$. I believe the combination of these observations, that the algorithm initially appears to grow in complexity slowly, but contains at least one component that grows as expected, suggests a complexity of the form $(cg(n) + dn^22^n)$ where $g(n)\in o(n^22^n)$ but $c \gg d$ so the run time initially appears to grow slower than $\mathcal{O}(n^22^n)$ even though that is the correct asymptotic complexity.
+
+This demonstration that the two algorithms have the same complexity provides further justification for believing that the equivalence explained in the Preparation chapter exists.
 
 \chapter{Conclusion}
 Having implemented both a generic ZDD manipulation library, and Travelling Salesman Problem solvers based on both a standard dynamic programming algorithm and a novel ZDD based algorithm, with instrumentation to measure the amount of computation done by both, I believe I have confirmed my original hypothesis. That is, both algorithms have been experimentally confirmed to have the expected complexity of $\mathcal{O}(n^22^n)$. Although the ZDD based solver initially appeared to have a lower complexity, I have shown that a component of it has the expected complexity and therefore the entire algorithm must also have at least the expected complexity, and from these two observations it is reasonable to conclude that the asymptotic complexity of the ZDD based solver is in fact as expected.
 
-To further evalutate this hypothesis I would want to obtain more powerful hardware, especially computers set up to provide more memory. The limiting factor on the size of instance that could be evaluated in these tests was the amount of memory needed by the ZDD algorithm, which can be shown to scale linearly with its run time. High performance computers with vastly more memory than my machine would allow testing much larger datasets. It would also be ideal to rewrite the ZDD manipulation library in a programming language with support for manual memory management to ensure no memory is being wasted and acquire a better understanding of how much of the algorithm's run time is being spent in the memory allocator. This would make it possible to more confidently assert that the methods of counting logical operations in this project are correct.
+To further evaluate this hypothesis I would want to obtain more powerful hardware, especially computers set up to provide more memory. The limiting factor on the size of instance that could be evaluated in these tests was the amount of memory needed by the ZDD algorithm, which can be shown to scale linearly with its run time. High performance computers with vastly more memory than my machine would allow testing much larger datasets. It would also be ideal to rewrite the ZDD manipulation library in a programming language with support for manual memory management to ensure no memory is being wasted and acquire a better understanding of how much of the algorithm's run time is being spent in the memory allocator. This would make it possible to more confidently assert that the methods of counting logical operations in this project are correct.
 
-Related work might look into the possibility of encoding Hamiltonian paths through a complete graph in propositional logic differently, and thereby possibly obtain a more compact ZDD to evaluate. If such an encoding is possible it would give a faster algorithm. It also might be interesting to look at the possibility of a custom compression function, different from those used by either ZDDs or BDDs for compressing the decision diagram used to represent the possible Hamiltonian paths. A compression function producing a smaller decision diagram while still being operatable on using a similar recursive algorithm to that used for BDDs and ZDDs would also likely give rise to a faster algorithm. 
+Related work might look into the possibility of encoding Hamiltonian paths through a complete graph in propositional logic differently, and thereby possibly obtain a more compact ZDD to evaluate. If such an encoding is possible it would give a faster algorithm. It also might be interesting to look at the possibility of a custom compression function, different from those used by either ZDDs or BDDs for compressing the decision diagram used to represent the possible Hamiltonian paths. A compression function producing a smaller decision diagram that can still be operated on using a similar recursive algorithm to that used for BDDs and ZDDs would also likely give rise to a faster algorithm. 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % the bibliography
@@ -573,5 +607,40 @@ Related work might look into the possibility of encoding Hamiltonian paths throu
 \chapter{Project Proposal}
 
 \input{proposal}
+
+\chapter{Deduplication Code}
+\begin{lstlisting}[language=Python]
+class NodeSet:
+    def __init__(self, variables):
+        self.variables=variables
+        # True and false never fetched from cache
+        # but need unique counters still
+        self.trueNode=node.TrueNode(self, 0)
+        self.falseNode=node.FalseNode(self, 1)
+        self.nodes=weakref.WeakValueDictionary()
+        self.nextCounter=2
+
+    def getNode(self, variable, t, f):
+        key = (variable, t.counter, f.counter)
+
+        # If an identical node already exists
+        # use it instead of a new node
+        if key in self.nodes:
+            return self.nodes[key]
+        
+        # Don't create a node with False as left child
+        # due to ZDD compression
+        if t.isFalse():
+            return f
+
+        # Otherwise construct a new node and
+        # update counter to ensure identifiers are unique
+        newNode = node.Node(variable, self, t, f, self.nextCounter)
+        self.nextCounter+=1
+
+        # Save node in cache so it can be reused in future
+        self.nodes[key] = newNode
+        return newNode
+\end{lstlisting}
 
 \end{document}

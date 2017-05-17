@@ -1,0 +1,15 @@
+digraph zdd{
+    p
+    q
+    r
+    1 [shape=square]
+    0 [shape=square]
+
+    p -> q
+    p -> q [style=dotted]
+    q -> r
+    q -> 0 [style=dotted]
+    r -> 1
+    r -> 1 [style=dotted]
+
+}
