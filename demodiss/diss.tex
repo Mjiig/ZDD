@@ -227,7 +227,7 @@ Zero-Suppressed Binary Decision Diagrams (ZDDs) are binary decision diagrams tha
 \begin{figure}[tbh]
 \centering
 \includegraphics{{figs/zdd.dot}.pdf}
-\caption{A ZDD produced by applying the ZDD compression strategy to the diagram shown in Figure \ref{decisiondiagram}. Notice that intuitively reading this diagram is hard, as a number of paths to the leaf labelled $0$ have disappeared, but still exist implicitly and can be reconstructed by reversing the ZDD compression strategy.}
+\caption{A ZDD produced by applying the ZDD compression strategy to the diagram shown in Figure \ref{decisiondiagram}. Notice that intuitively reading this diagram is hard, as a number of paths to the leaf labelled $0$ have been removed, but still exist implicitly and can be reconstructed by reversing the ZDD compression strategy. The arc from the node labelled $p$ to the node labelled $1$ should be read to mean that when the propositional letter $p$ is asserted, the represented propositional sentence is satisfied if and only if the omitted propositional letters ($q$ and $r$) are not asserted.}
 \label{zdd}
 \end{figure}
 
